@@ -1,0 +1,2 @@
+export PI_HOLE_API_TEST_TARGET="http://192.168.1.2"  # Address of your Pi Hole
+export PI_HOLE_API_TEST_API_KEY="0123456789abcedf0123456789abcedf0123456789abcedf0123456789abcedf"  # Pi Hole API key
