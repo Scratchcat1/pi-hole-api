@@ -1,6 +1,7 @@
 use reqwest::{self, Error};
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::net::IpAddr;
 
 /// Summary Raw Struct
 #[derive(Deserialize, Debug)]
@@ -36,16 +37,20 @@ pub struct SummaryRaw {
     pub dns_queries_all_types: u64,
 
     /// Number of NODATA replies
-    pub reply_NODATA: u64,
+    #[serde(rename = "reply_NODATA")]
+    pub reply_nodata: u64,
 
     /// Number of NXDOMAIN replies
-    pub reply_NXDOMAIN: u64,
+    #[serde(rename = "reply_NXDOMAIN")]
+    pub reply_nxdomain: u64,
 
     /// Number of CNAME replies
-    pub reply_CNAME: u64,
+    #[serde(rename = "reply_CNAME")]
+    pub reply_cname: u64,
 
     /// Number of IP replies
-    pub reply_IP: u64,
+    #[serde(rename = "reply_IP")]
+    pub reply_ip: u64,
 
     /// Privacy level
     pub privacy_level: u64,
@@ -88,16 +93,20 @@ pub struct Summary {
     pub dns_queries_all_types: String,
 
     /// Formatted number of NODATA replies
-    pub reply_NODATA: String,
+    #[serde(rename = "reply_NODATA")]
+    pub reply_nodata: String,
 
     /// Formatted number of NXDOMAIN replies
-    pub reply_NXDOMAIN: String,
+    #[serde(rename = "reply_NXDOMAIN")]
+    pub reply_nxdomain: String,
 
     /// Formatted number of CNAME replies
-    pub reply_CNAME: String,
+    #[serde(rename = "reply_CNAME")]
+    pub reply_cname: String,
 
     /// Formatted number of IP replies
-    pub reply_IP: String,
+    #[serde(rename = "reply_IP")]
+    pub reply_ip: String,
 
     /// Privacy level
     pub privacy_level: String,
@@ -131,6 +140,13 @@ pub struct TopItems {
 pub struct TopClients {
     /// Top sources
     pub top_sources: HashMap<String, u64>,
+}
+
+/// Top Clients Blocked Struct
+#[derive(Deserialize, Debug)]
+pub struct TopClientsBlocked {
+    /// Top sources blocked
+    pub top_sources_blocked: HashMap<String, u64>,
 }
 
 /// Forward Destinations Struct
@@ -185,6 +201,32 @@ pub struct Status {
 pub struct Version {
     /// Version
     pub version: u32,
+}
+
+/// Cache Info Struct
+#[derive(Deserialize, Debug)]
+pub struct CacheInfo {
+    /// Cache size
+    #[serde(rename = "cache-size")]
+    pub cache_size: u64,
+
+    /// Number of evicted cache entries
+    #[serde(rename = "cache-live-freed")]
+    pub cache_live_freed: u64,
+
+    /// Number of cache entries inserted
+    #[serde(rename = "cache-inserted")]
+    pub cache_inserted: u64,
+}
+
+/// Client Name Struct
+#[derive(Deserialize, Debug)]
+pub struct ClientName {
+    /// Client name
+    pub name: String,
+
+    /// Client IP
+    pub ip: IpAddr,
 }
 
 /// Pi Hole API Struct
@@ -245,6 +287,22 @@ impl PiHoleAPI {
     pub async fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, Error> {
         let url = format!(
             "{}/admin/api.php?topClients={}&auth={}",
+            self.host,
+            count.unwrap_or(10),
+            self.api_key.as_ref().unwrap_or(&"".to_string())
+        );
+        let response = reqwest::get(&url).await?;
+        Ok(response.json().await?)
+    }
+
+    /// Get the top clients blocked and the number of queries for each. Limit the number of items with `count`.
+    /// API key required.
+    pub async fn get_top_clients_blocked(
+        &self,
+        count: Option<u32>,
+    ) -> Result<TopClientsBlocked, Error> {
+        let url = format!(
+            "{}/admin/api.php?topClientsBlocked={}&auth={}",
             self.host,
             count.unwrap_or(10),
             self.api_key.as_ref().unwrap_or(&"".to_string())
@@ -335,6 +393,50 @@ impl PiHoleAPI {
         let url = format!("{}/admin/api.php?version", self.host);
         let response = reqwest::get(&url).await?;
         Ok(response.json().await?)
+    }
+
+    /// Get statistics about the DNS cache.
+    /// API key required.
+    pub async fn get_cache_info(&self) -> Result<CacheInfo, Error> {
+        let url = format!(
+            "{}/admin/api.php?getCacheInfo&auth={}",
+            self.host,
+            self.api_key.as_ref().unwrap_or(&"".to_string())
+        );
+        let response = reqwest::get(&url).await?;
+        let mut raw_data: HashMap<String, CacheInfo> = response.json().await?;
+        Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
+    }
+
+    /// Get hostname and IP for hosts
+    /// API key required.
+    pub async fn get_client_names(&self) -> Result<Vec<ClientName>, Error> {
+        let url = format!(
+            "{}/admin/api.php?getClientNames&auth={}",
+            self.host,
+            self.api_key.as_ref().unwrap_or(&"".to_string())
+        );
+        let response = reqwest::get(&url).await?;
+        let mut raw_data: HashMap<String, Vec<ClientName>> = response.json().await?;
+        Ok(raw_data
+            .remove("clients")
+            .expect("Missing clients attribute"))
+    }
+
+    /// Get queries by client over time. Maps timestamp to the number of queries by clients.
+    /// Order of clients in the Vector is the same as for get_client_names
+    /// API key required.
+    pub async fn get_over_time_data_clients(&self) -> Result<HashMap<u64, Vec<u64>>, Error> {
+        let url = format!(
+            "{}/admin/api.php?overTimeDataClients&auth={}",
+            self.host,
+            self.api_key.as_ref().unwrap_or(&"".to_string())
+        );
+        let response = reqwest::get(&url).await?;
+        let mut raw_data: HashMap<String, HashMap<u64, Vec<u64>>> = response.json().await?;
+        Ok(raw_data
+            .remove("over_time")
+            .expect("Missing over_time attribute"))
     }
 }
 
@@ -456,6 +558,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn get_top_clients_blocked_test() {
+        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
+        match api.get_top_clients_blocked(None).await {
+            Ok(top_clients_blocked) => {
+                println!("{:?}", top_clients_blocked);
+                // assert!(over_time_data == "enabled")
+            }
+            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
+        };
+
+        match api.get_top_clients_blocked(Some(1)).await {
+            Ok(top_clients_blocked) => {
+                println!("{:?}", top_clients_blocked);
+                assert!(top_clients_blocked.top_sources_blocked.len() <= 1);
+            }
+            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
+        };
+
+        match api.get_top_clients_blocked(Some(100)).await {
+            Ok(top_clients_blocked) => {
+                println!("{:?}", top_clients_blocked);
+                assert!(top_clients_blocked.top_sources_blocked.len() <= 100);
+            }
+            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
+        };
+    }
+
+    #[tokio::test]
     async fn get_forward_destinations_test() {
         let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
         match api.get_forward_destinations().await {
@@ -531,6 +661,47 @@ mod tests {
                 assert!(version.version >= 3);
             }
             Err(e) => assert!(false, format!("Failed to get version: {}", e)),
+        };
+    }
+
+    #[tokio::test]
+    async fn get_cache_info_test() {
+        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
+        match api.get_cache_info().await {
+            Ok(cache_info) => {
+                println!("{:?}", cache_info);
+                // assert!(cache_info.cache >= 3);
+            }
+            Err(e) => assert!(false, format!("Failed to get cache info: {}", e)),
+        };
+    }
+
+    #[tokio::test]
+    async fn get_client_names_test() {
+        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
+        match api.get_client_names().await {
+            Ok(client_names) => {
+                println!("{:?}", client_names);
+                assert!(client_names.len() > 0);
+                // assert!(cache_info.cache >= 3);
+            }
+            Err(e) => assert!(false, format!("Failed to get client names: {}", e)),
+        };
+    }
+
+    #[tokio::test]
+    async fn get_over_time_data_clients_test() {
+        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
+        match api.get_over_time_data_clients().await {
+            Ok(over_time_data_clients) => {
+                println!("{:?}", over_time_data_clients);
+                assert!(over_time_data_clients.len() > 0);
+                // assert!(cache_info.cache >= 3);
+            }
+            Err(e) => assert!(
+                false,
+                format!("Failed to get over time data clients: {}", e)
+            ),
         };
     }
 }
