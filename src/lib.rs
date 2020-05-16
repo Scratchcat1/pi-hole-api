@@ -305,6 +305,9 @@ impl PiHoleAPI {
     where
         T: DeserializeOwned,
     {
+        if self.api_key == None {
+            simple_error::bail!("API key is required for authenticated requests");
+        }
         let auth_path_query;
         match path_query.contains("?") {
             true => {
@@ -312,7 +315,7 @@ impl PiHoleAPI {
                     "{}{}&auth={}",
                     self.host,
                     path_query,
-                    self.api_key.as_ref().unwrap_or(&"".to_string())
+                    self.api_key.as_ref().unwrap()
                 )
             }
             false => {
@@ -320,7 +323,7 @@ impl PiHoleAPI {
                     "{}{}?auth={}",
                     self.host,
                     path_query,
-                    self.api_key.as_ref().unwrap_or(&"".to_string())
+                    self.api_key.as_ref().unwrap()
                 )
             }
         }
