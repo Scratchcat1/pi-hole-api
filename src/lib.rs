@@ -1,6 +1,8 @@
-use reqwest::{self, Error};
+use reqwest::{self};
 use serde::Deserialize;
+use simple_error;
 use std::collections::HashMap;
+use std::error::Error;
 use std::net::IpAddr;
 
 /// Summary Raw Struct
@@ -236,7 +238,7 @@ pub struct NetworkClient {
     pub id: u64,
 
     /// IP address
-    pub ip: IpAddr,
+    pub ip: Vec<IpAddr>,
 
     /// Hardware address
     pub hwaddr: String,
@@ -291,21 +293,21 @@ impl PiHoleAPI {
     }
 
     /// Get statistics in a raw format (no number format)
-    pub async fn get_summary_raw(&self) -> Result<SummaryRaw, Error> {
+    pub async fn get_summary_raw(&self) -> Result<SummaryRaw, Box<dyn Error>> {
         let url = format!("{}/admin/api.php?summaryRaw", self.host);
         let response = reqwest::get(&url).await?;
         Ok(response.json().await?)
     }
 
     /// Get statistics in a formatted style
-    pub async fn get_summary(&self) -> Result<Summary, Error> {
+    pub async fn get_summary(&self) -> Result<Summary, Box<dyn Error>> {
         let url = format!("{}/admin/api.php?summary", self.host);
         let response = reqwest::get(&url).await?;
         Ok(response.json().await?)
     }
 
     /// Get statistics on the number of domains and ads for each 10 minute period
-    pub async fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, Error> {
+    pub async fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, Box<dyn Error>> {
         let url = format!("{}/admin/api.php?overTimeData10mins", self.host);
         let response = reqwest::get(&url).await?;
         Ok(response.json().await?)
@@ -313,7 +315,7 @@ impl PiHoleAPI {
 
     /// Get the top domains and ads and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
-    pub async fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, Error> {
+    pub async fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?topItems={}&auth={}",
             self.host,
@@ -326,7 +328,7 @@ impl PiHoleAPI {
 
     /// Get the top clients and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
-    pub async fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, Error> {
+    pub async fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?topClients={}&auth={}",
             self.host,
@@ -342,7 +344,7 @@ impl PiHoleAPI {
     pub async fn get_top_clients_blocked(
         &self,
         count: Option<u32>,
-    ) -> Result<TopClientsBlocked, Error> {
+    ) -> Result<TopClientsBlocked, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?topClientsBlocked={}&auth={}",
             self.host,
@@ -355,7 +357,7 @@ impl PiHoleAPI {
 
     /// Get the number of queries forwarded and the target.
     /// API key required.
-    pub async fn get_forward_destinations(&self) -> Result<ForwardDestinations, Error> {
+    pub async fn get_forward_destinations(&self) -> Result<ForwardDestinations, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?getForwardDestinations&auth={}",
             self.host,
@@ -367,7 +369,7 @@ impl PiHoleAPI {
 
     /// Get the number of queries per type.
     /// API key required.
-    pub async fn get_query_types(&self) -> Result<QueryTypes, Error> {
+    pub async fn get_query_types(&self) -> Result<QueryTypes, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?getQueryTypes&auth={}",
             self.host,
@@ -379,7 +381,7 @@ impl PiHoleAPI {
 
     /// Get all DNS query data. Limit the number of items with `count`.
     /// API key required.
-    pub async fn get_all_queries(&self, count: u32) -> Result<AllQueries, Error> {
+    pub async fn get_all_queries(&self, count: u32) -> Result<AllQueries, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?getAllQueries={}&auth={}",
             self.host,
@@ -388,6 +390,8 @@ impl PiHoleAPI {
         );
         let response = reqwest::get(&url).await?;
         let mut raw_data: HashMap<String, Vec<Vec<String>>> = response.json().await?;
+
+        // Convert the queries from a list into a more useful Query struct
         let data = AllQueries {
             data: raw_data
                 .remove("data")
@@ -407,7 +411,7 @@ impl PiHoleAPI {
 
     /// Enable the Pi-Hole.
     /// API key required.
-    pub async fn enable(&self) -> Result<Status, Error> {
+    pub async fn enable(&self) -> Result<Status, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?enable&auth={}",
             self.host,
@@ -419,7 +423,7 @@ impl PiHoleAPI {
 
     /// Disable the Pi-Hole for `seconds` seconds.
     /// API key required.
-    pub async fn disable(&self, seconds: u64) -> Result<Status, Error> {
+    pub async fn disable(&self, seconds: u64) -> Result<Status, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?disable={}&auth={}",
             self.host,
@@ -431,7 +435,7 @@ impl PiHoleAPI {
     }
 
     /// Get the Pi-Hole version.
-    pub async fn get_version(&self) -> Result<Version, Error> {
+    pub async fn get_version(&self) -> Result<Version, Box<dyn Error>> {
         let url = format!("{}/admin/api.php?version", self.host);
         let response = reqwest::get(&url).await?;
         Ok(response.json().await?)
@@ -439,7 +443,7 @@ impl PiHoleAPI {
 
     /// Get statistics about the DNS cache.
     /// API key required.
-    pub async fn get_cache_info(&self) -> Result<CacheInfo, Error> {
+    pub async fn get_cache_info(&self) -> Result<CacheInfo, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?getCacheInfo&auth={}",
             self.host,
@@ -452,7 +456,7 @@ impl PiHoleAPI {
 
     /// Get hostname and IP for hosts
     /// API key required.
-    pub async fn get_client_names(&self) -> Result<Vec<ClientName>, Error> {
+    pub async fn get_client_names(&self) -> Result<Vec<ClientName>, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?getClientNames&auth={}",
             self.host,
@@ -468,7 +472,9 @@ impl PiHoleAPI {
     /// Get queries by client over time. Maps timestamp to the number of queries by clients.
     /// Order of clients in the Vector is the same as for get_client_names
     /// API key required.
-    pub async fn get_over_time_data_clients(&self) -> Result<HashMap<u64, Vec<u64>>, Error> {
+    pub async fn get_over_time_data_clients(
+        &self,
+    ) -> Result<HashMap<u64, Vec<u64>>, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?overTimeDataClients&auth={}",
             self.host,
@@ -483,7 +489,7 @@ impl PiHoleAPI {
 
     /// Get information about network clients.
     /// API key required.
-    pub async fn get_network(&self) -> Result<Network, Error> {
+    pub async fn get_network(&self) -> Result<Network, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api_db.php?network&auth={}",
             self.host,
@@ -493,9 +499,9 @@ impl PiHoleAPI {
         Ok(response.json().await?)
     }
 
-    /// Get the total number of queries received
+    /// Get the total number of queries received.
     /// API key required.
-    pub async fn get_queries_count(&self) -> Result<u64, Error> {
+    pub async fn get_queries_count(&self) -> Result<u64, Box<dyn Error>> {
         let url = format!(
             "{}/admin/api_db.php?getQueriesCount&auth={}",
             self.host,
@@ -504,6 +510,24 @@ impl PiHoleAPI {
         let response = reqwest::get(&url).await?;
         let mut raw_data: HashMap<String, u64> = response.json().await?;
         Ok(raw_data.remove("count").expect("Missing count attribute"))
+    }
+
+    /// Add domains to a list.
+    /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
+    /// API key required.
+    pub async fn add(&self, domains: Vec<String>, list: String) -> Result<(), Box<dyn Error>> {
+        let url = format!(
+            "{}/admin/api.php?add={}&list={}&auth={}",
+            self.host,
+            domains.join(" "),
+            list,
+            self.api_key.as_ref().unwrap_or(&"".to_string())
+        );
+        let body = reqwest::get(&url).await?.text().await?;
+        match body.contains("Success") {
+            true => Ok(()),
+            false => simple_error::bail!("Pi-Hole API error: ".to_string() + &body),
+        }
     }
 }
 
@@ -522,11 +546,6 @@ mod tests {
             env::var("PI_HOLE_API_TEST_API_KEY")
                 .expect("Missing environmental var PI_HOLE_API_TEST_API_KEY"),
         )
-    }
-
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
     }
 
     #[tokio::test]
@@ -795,6 +814,21 @@ mod tests {
                 // assert!(cache_info.cache >= 3);
             }
             Err(e) => assert!(false, format!("Failed to get network information: {}", e)),
+        };
+    }
+
+    #[tokio::test]
+    async fn add_test() {
+        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
+        match api
+            .add(vec!["testdomain.foo".to_string()], "white".to_string())
+            .await
+        {
+            Ok(_) => {
+                // println!("{:?}");
+                // assert!(cache_info.cache >= 3);
+            }
+            Err(e) => assert!(false, format!("Failed to add domain to list: {}", e)),
         };
     }
 }
