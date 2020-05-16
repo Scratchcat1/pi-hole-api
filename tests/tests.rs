@@ -17,7 +17,10 @@ fn pi_hole_api_test_api_key() -> Option<String> {
 async fn get_summary_raw_test() {
     let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), None);
     match api.get_summary_raw().await {
-        Ok(_) => {}
+        Ok(summary_raw) => assert!(
+            summary_raw.status == "enabled" || summary_raw.status == "disabled",
+            "Pi-Hole is neither enabled nor disabled"
+        ),
         Err(e) => assert!(false, format!("Failed to get summary raw: {}", e)),
     };
 }
@@ -26,7 +29,10 @@ async fn get_summary_raw_test() {
 async fn get_summary_test() {
     let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), None);
     match api.get_summary().await {
-        Ok(_) => {}
+        Ok(summary) => assert!(
+            summary.status == "enabled" || summary.status == "disabled",
+            "Pi-Hole is neither enabled nor disabled"
+        ),
         Err(e) => assert!(false, format!("Failed to get summary: {}", e)),
     };
 }

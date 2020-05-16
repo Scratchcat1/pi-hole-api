@@ -130,38 +130,38 @@ pub struct OverTimeData {
 /// Top Items Struct
 #[derive(Deserialize, Debug)]
 pub struct TopItems {
-    /// Top queries
+    /// Top queries mapping from domain to number of requests
     pub top_queries: HashMap<String, u64>,
 
-    /// Top ads
+    /// Top ads mapping from domain to number of requests
     pub top_ads: HashMap<String, u64>,
 }
 
 /// Top Clients Struct
 #[derive(Deserialize, Debug)]
 pub struct TopClients {
-    /// Top sources
+    /// Top sources mapping from "IP" or "hostname|IP" to number of requests.
     pub top_sources: HashMap<String, u64>,
 }
 
 /// Top Clients Blocked Struct
 #[derive(Deserialize, Debug)]
 pub struct TopClientsBlocked {
-    /// Top sources blocked
+    /// Top sources blocked mapping from "IP" or "hostname|IP" to number of blocked requests.
     pub top_sources_blocked: HashMap<String, u64>,
 }
 
 /// Forward Destinations Struct
 #[derive(Deserialize, Debug)]
 pub struct ForwardDestinations {
-    /// Forward destinations
+    /// Forward destinations mapping from "human_readable_name|IP" to the percentage of requests answered.
     pub forward_destinations: HashMap<String, f64>,
 }
 
 /// Query Types Struct
 #[derive(Deserialize, Debug)]
 pub struct QueryTypes {
-    /// Query types
+    /// Query types mapping from query type (A, AAAA, PTR, etc.) to the percentage of queries which are of that type.
     pub querytypes: HashMap<String, f64>,
 }
 
@@ -171,13 +171,13 @@ pub struct Query {
     /// Timestamp of query
     pub timestring: String,
 
-    /// Type of query
+    /// Type of query (A, AAAA, PTR, etc.)
     pub query_type: String,
 
     /// Requested domain name
     pub domain: String,
 
-    /// Requesting client
+    /// Requesting client IP or hostname
     pub client: String,
 
     /// Status as String
@@ -237,7 +237,7 @@ pub struct NetworkClient {
     /// Client ID
     pub id: u64,
 
-    /// IP address
+    /// IP addresses of client
     pub ip: Vec<IpAddr>,
 
     /// Hardware address
@@ -283,7 +283,8 @@ pub struct PiHoleAPI {
 }
 
 impl PiHoleAPI {
-    /// Creates a new Pi Hole API instance
+    /// Creates a new Pi Hole API instance.
+    /// `host` must begin with the protocol e.g. http:// or https://
     pub fn new(host: String, api_key: Option<String>) -> Self {
         Self { host, api_key }
     }
