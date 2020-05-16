@@ -1,5 +1,5 @@
 use reqwest::{self};
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 use simple_error;
 use std::collections::HashMap;
 use std::error::Error;
@@ -292,51 +292,74 @@ impl PiHoleAPI {
         self.api_key = Some(api_key.into());
     }
 
+    async fn simple_json_request<T>(&self, path_query: String) -> Result<T, Box<dyn Error>>
+    where
+        T: DeserializeOwned,
+    {
+        let response = reqwest::get(&format!("{}{}", self.host, path_query)).await?;
+        Ok(response.json().await?)
+    }
+
+    async fn authenticated_json_request<T>(&self, path_query: String) -> Result<T, Box<dyn Error>>
+    where
+        T: DeserializeOwned,
+    {
+        let auth_path_query;
+        match path_query.contains("?") {
+            true => {
+                auth_path_query = format!(
+                    "{}{}&auth={}",
+                    self.host,
+                    path_query,
+                    self.api_key.as_ref().unwrap_or(&"".to_string())
+                )
+            }
+            false => {
+                auth_path_query = format!(
+                    "{}{}?auth={}",
+                    self.host,
+                    path_query,
+                    self.api_key.as_ref().unwrap_or(&"".to_string())
+                )
+            }
+        }
+        let response = reqwest::get(&auth_path_query).await?;
+        Ok(response.json().await?)
+    }
+
     /// Get statistics in a raw format (no number format)
     pub async fn get_summary_raw(&self) -> Result<SummaryRaw, Box<dyn Error>> {
-        let url = format!("{}/admin/api.php?summaryRaw", self.host);
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.simple_json_request("/admin/api.php?summaryRaw".to_string())
+            .await
     }
 
     /// Get statistics in a formatted style
     pub async fn get_summary(&self) -> Result<Summary, Box<dyn Error>> {
-        let url = format!("{}/admin/api.php?summary", self.host);
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.simple_json_request("/admin/api.php?summary".to_string())
+            .await
     }
 
     /// Get statistics on the number of domains and ads for each 10 minute period
     pub async fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, Box<dyn Error>> {
-        let url = format!("{}/admin/api.php?overTimeData10mins", self.host);
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.simple_json_request("/admin/api.php?overTimeData10mins".to_string())
+            .await
     }
 
     /// Get the top domains and ads and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
     pub async fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?topItems={}&auth={}",
-            self.host,
-            count.unwrap_or(10),
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request(format!("/admin/api.php?topItems={}", count.unwrap_or(10)))
+            .await
     }
 
     /// Get the top clients and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
     pub async fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?topClients={}&auth={}",
-            self.host,
-            count.unwrap_or(10),
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request(format!(
+            "/admin/api.php?topClients={}",
+            count.unwrap_or(10)
+        ))
+        .await
     }
 
     /// Get the top clients blocked and the number of queries for each. Limit the number of items with `count`.
@@ -345,51 +368,33 @@ impl PiHoleAPI {
         &self,
         count: Option<u32>,
     ) -> Result<TopClientsBlocked, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?topClientsBlocked={}&auth={}",
-            self.host,
-            count.unwrap_or(10),
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request(format!(
+            "/admin/api.php?topClientsBlocked={}",
+            count.unwrap_or(10)
+        ))
+        .await
     }
 
     /// Get the number of queries forwarded and the target.
     /// API key required.
     pub async fn get_forward_destinations(&self) -> Result<ForwardDestinations, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?getForwardDestinations&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request("/admin/api.php?getForwardDestinations".to_string())
+            .await
     }
 
     /// Get the number of queries per type.
     /// API key required.
     pub async fn get_query_types(&self) -> Result<QueryTypes, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?getQueryTypes&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request("/admin/api.php?getQueryTypes".to_string())
+            .await
     }
 
     /// Get all DNS query data. Limit the number of items with `count`.
     /// API key required.
     pub async fn get_all_queries(&self, count: u32) -> Result<AllQueries, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?getAllQueries={}&auth={}",
-            self.host,
-            count,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        let mut raw_data: HashMap<String, Vec<Vec<String>>> = response.json().await?;
+        let mut raw_data: HashMap<String, Vec<Vec<String>>> = self
+            .authenticated_json_request(format!("/admin/api.php?getAllQueries={}", count))
+            .await?;
 
         // Convert the queries from a list into a more useful Query struct
         let data = AllQueries {
@@ -412,58 +417,38 @@ impl PiHoleAPI {
     /// Enable the Pi-Hole.
     /// API key required.
     pub async fn enable(&self) -> Result<Status, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?enable&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request("/admin/api.php?enable".to_string())
+            .await
     }
 
     /// Disable the Pi-Hole for `seconds` seconds.
     /// API key required.
     pub async fn disable(&self, seconds: u64) -> Result<Status, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?disable={}&auth={}",
-            self.host,
-            seconds,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request(format!("/admin/api.php?disable={}", seconds))
+            .await
     }
 
     /// Get the Pi-Hole version.
     pub async fn get_version(&self) -> Result<Version, Box<dyn Error>> {
-        let url = format!("{}/admin/api.php?version", self.host);
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.simple_json_request("/admin/api.php?version".to_string())
+            .await
     }
 
     /// Get statistics about the DNS cache.
     /// API key required.
     pub async fn get_cache_info(&self) -> Result<CacheInfo, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?getCacheInfo&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        let mut raw_data: HashMap<String, CacheInfo> = response.json().await?;
+        let mut raw_data: HashMap<String, CacheInfo> = self
+            .authenticated_json_request("/admin/api.php?getCacheInfo".to_string())
+            .await?;
         Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
     }
 
     /// Get hostname and IP for hosts
     /// API key required.
     pub async fn get_client_names(&self) -> Result<Vec<ClientName>, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?getClientNames&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        let mut raw_data: HashMap<String, Vec<ClientName>> = response.json().await?;
+        let mut raw_data: HashMap<String, Vec<ClientName>> = self
+            .authenticated_json_request("/admin/api.php?getClientNames".to_string())
+            .await?;
         Ok(raw_data
             .remove("clients")
             .expect("Missing clients attribute"))
@@ -475,13 +460,9 @@ impl PiHoleAPI {
     pub async fn get_over_time_data_clients(
         &self,
     ) -> Result<HashMap<u64, Vec<u64>>, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api.php?overTimeDataClients&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        let mut raw_data: HashMap<String, HashMap<u64, Vec<u64>>> = response.json().await?;
+        let mut raw_data: HashMap<String, HashMap<u64, Vec<u64>>> = self
+            .authenticated_json_request("/admin/api.php?overTimeDataClients".to_string())
+            .await?;
         Ok(raw_data
             .remove("over_time")
             .expect("Missing over_time attribute"))
@@ -490,25 +471,16 @@ impl PiHoleAPI {
     /// Get information about network clients.
     /// API key required.
     pub async fn get_network(&self) -> Result<Network, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api_db.php?network&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        Ok(response.json().await?)
+        self.authenticated_json_request("/admin/api_db.php?network".to_string())
+            .await
     }
 
     /// Get the total number of queries received.
     /// API key required.
     pub async fn get_queries_count(&self) -> Result<u64, Box<dyn Error>> {
-        let url = format!(
-            "{}/admin/api_db.php?getQueriesCount&auth={}",
-            self.host,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
-        let response = reqwest::get(&url).await?;
-        let mut raw_data: HashMap<String, u64> = response.json().await?;
+        let mut raw_data: HashMap<String, u64> = self
+            .authenticated_json_request("/admin/api_db.php?getQueriesCount".to_string())
+            .await?;
         Ok(raw_data.remove("count").expect("Missing count attribute"))
     }
 
@@ -528,307 +500,5 @@ impl PiHoleAPI {
             true => Ok(()),
             false => simple_error::bail!("Pi-Hole API error: ".to_string() + &body),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::env;
-    use tokio;
-
-    fn pi_hole_api_test_target() -> String {
-        env::var("PI_HOLE_API_TEST_TARGET")
-            .expect("Missing environmental var PI_HOLE_API_TEST_TARGET")
-    }
-
-    fn pi_hole_api_test_api_key() -> Option<String> {
-        Some(
-            env::var("PI_HOLE_API_TEST_API_KEY")
-                .expect("Missing environmental var PI_HOLE_API_TEST_API_KEY"),
-        )
-    }
-
-    #[tokio::test]
-    async fn get_summary_raw_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), None);
-        match api.get_summary_raw().await {
-            Ok(summary_raw) => {
-                println!("{:?}", summary_raw.status);
-                // assert!(summary_raw.status == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get summary raw: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_summary_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), None);
-        match api.get_summary().await {
-            Ok(summary) => {
-                println!("{:?}", summary.status);
-                // assert!(summary.status == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get summary: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_over_time_data_10_mins_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), None);
-        match api.get_over_time_data_10_mins().await {
-            Ok(over_time_data) => {
-                println!("{:?}", over_time_data);
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(
-                false,
-                format!("Failed to get over time data 10 minutes: {}", e)
-            ),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_top_items_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_top_items(None).await {
-            Ok(top_items) => {
-                println!("{:?}", top_items);
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-
-        match api.get_top_items(Some(1)).await {
-            Ok(top_items) => {
-                println!("{:?}", top_items);
-                assert!(top_items.top_queries.len() <= 1);
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-
-        match api.get_top_items(Some(100)).await {
-            Ok(top_items) => {
-                println!("{:?}", top_items);
-                assert!(top_items.top_queries.len() <= 100);
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_top_clients_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_top_clients(None).await {
-            Ok(top_clients) => {
-                println!("{:?}", top_clients);
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-
-        match api.get_top_clients(Some(1)).await {
-            Ok(top_clients) => {
-                println!("{:?}", top_clients);
-                assert!(top_clients.top_sources.len() <= 1);
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-
-        match api.get_top_clients(Some(100)).await {
-            Ok(top_clients) => {
-                println!("{:?}", top_clients);
-                assert!(top_clients.top_sources.len() <= 100);
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_top_clients_blocked_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_top_clients_blocked(None).await {
-            Ok(top_clients_blocked) => {
-                println!("{:?}", top_clients_blocked);
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-
-        match api.get_top_clients_blocked(Some(1)).await {
-            Ok(top_clients_blocked) => {
-                println!("{:?}", top_clients_blocked);
-                assert!(top_clients_blocked.top_sources_blocked.len() <= 1);
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-
-        match api.get_top_clients_blocked(Some(100)).await {
-            Ok(top_clients_blocked) => {
-                println!("{:?}", top_clients_blocked);
-                assert!(top_clients_blocked.top_sources_blocked.len() <= 100);
-            }
-            Err(e) => assert!(false, format!("Failed to get top items: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_forward_destinations_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_forward_destinations().await {
-            Ok(forward_destinations) => {
-                println!("{:?}", forward_destinations);
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get forward destinations: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_query_types_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_query_types().await {
-            Ok(query_types) => {
-                println!("{:?}", query_types);
-                assert!(query_types.querytypes.get("A (IPv4)").expect("Missing key") >= &0.0);
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get query types: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_all_queries_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_all_queries(100).await {
-            Ok(all_queries) => {
-                println!("{:?}", all_queries);
-                // assert!(all_queries.data.len() >= 0);
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to get all queries: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn enable_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.enable().await {
-            Ok(status) => {
-                println!("{:?}", status);
-                assert!(status.status == "enabled");
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to enable pi-hole: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn disable_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.disable(10).await {
-            Ok(status) => {
-                println!("{:?}", status);
-                assert!(status.status == "disabled");
-                // assert!(over_time_data == "enabled")
-            }
-            Err(e) => assert!(false, format!("Failed to disable pi-hole: {}", e)),
-        };
-        api.enable()
-            .await
-            .expect("Failed to reenable pi-hole after test");
-    }
-
-    #[tokio::test]
-    async fn version_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), None);
-        match api.get_version().await {
-            Ok(version) => {
-                println!("{:?}", version);
-                assert!(version.version >= 3);
-            }
-            Err(e) => assert!(false, format!("Failed to get version: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_cache_info_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_cache_info().await {
-            Ok(cache_info) => {
-                println!("{:?}", cache_info);
-                // assert!(cache_info.cache >= 3);
-            }
-            Err(e) => assert!(false, format!("Failed to get cache info: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_client_names_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_client_names().await {
-            Ok(client_names) => {
-                println!("{:?}", client_names);
-                assert!(client_names.len() > 0);
-                // assert!(cache_info.cache >= 3);
-            }
-            Err(e) => assert!(false, format!("Failed to get client names: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_over_time_data_clients_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_over_time_data_clients().await {
-            Ok(over_time_data_clients) => {
-                println!("{:?}", over_time_data_clients);
-                assert!(over_time_data_clients.len() > 0);
-                // assert!(cache_info.cache >= 3);
-            }
-            Err(e) => assert!(
-                false,
-                format!("Failed to get over time data clients: {}", e)
-            ),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_network_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_network().await {
-            Ok(network) => {
-                println!("{:?}", network);
-                assert!(network.network.len() > 0);
-                // assert!(cache_info.cache >= 3);
-            }
-            Err(e) => assert!(false, format!("Failed to get network information: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn get_queries_count_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api.get_queries_count().await {
-            Ok(count) => {
-                println!("{:?}", count);
-                assert!(count > 0);
-                // assert!(cache_info.cache >= 3);
-            }
-            Err(e) => assert!(false, format!("Failed to get network information: {}", e)),
-        };
-    }
-
-    #[tokio::test]
-    async fn add_test() {
-        let api = crate::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-        match api
-            .add(vec!["testdomain.foo".to_string()], "white".to_string())
-            .await
-        {
-            Ok(_) => {
-                // println!("{:?}");
-                // assert!(cache_info.cache >= 3);
-            }
-            Err(e) => assert!(false, format!("Failed to add domain to list: {}", e)),
-        };
     }
 }
