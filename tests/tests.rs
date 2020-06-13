@@ -242,10 +242,7 @@ async fn get_queries_count_test() {
 #[tokio::test]
 async fn add_test() {
     let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api
-        .add(vec!["testdomain.foo".to_string()], "white".to_string())
-        .await
-    {
+    match api.add(vec!["testdomain.foo"], "white").await {
         Ok(_) => {}
         Err(e) => assert!(false, format!("Failed to add domain to list: {}", e)),
     };

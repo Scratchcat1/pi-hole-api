@@ -289,11 +289,11 @@ impl PiHoleAPI {
         Self { host, api_key }
     }
 
-    pub fn set_api_key(&mut self, api_key: &String) {
-        self.api_key = Some(api_key.into());
+    pub fn set_api_key(&mut self, api_key: String) {
+        self.api_key = Some(api_key);
     }
 
-    async fn simple_json_request<T>(&self, path_query: String) -> Result<T, Box<dyn Error>>
+    async fn simple_json_request<T>(&self, path_query: &str) -> Result<T, Box<dyn Error>>
     where
         T: DeserializeOwned,
     {
@@ -301,11 +301,11 @@ impl PiHoleAPI {
         Ok(response.json().await?)
     }
 
-    async fn authenticated_json_request<T>(&self, path_query: String) -> Result<T, Box<dyn Error>>
+    async fn authenticated_json_request<T>(&self, path_query: &str) -> Result<T, Box<dyn Error>>
     where
         T: DeserializeOwned,
     {
-        if self.api_key == None {
+        if self.api_key.is_none() {
             simple_error::bail!("API key is required for authenticated requests");
         }
         let auth_path_query;
@@ -333,33 +333,31 @@ impl PiHoleAPI {
 
     /// Get statistics in a raw format (no number format)
     pub async fn get_summary_raw(&self) -> Result<SummaryRaw, Box<dyn Error>> {
-        self.simple_json_request("/admin/api.php?summaryRaw".to_string())
-            .await
+        self.simple_json_request(&"/admin/api.php?summaryRaw").await
     }
 
     /// Get statistics in a formatted style
     pub async fn get_summary(&self) -> Result<Summary, Box<dyn Error>> {
-        self.simple_json_request("/admin/api.php?summary".to_string())
-            .await
+        self.simple_json_request("/admin/api.php?summary").await
     }
 
     /// Get statistics on the number of domains and ads for each 10 minute period
     pub async fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, Box<dyn Error>> {
-        self.simple_json_request("/admin/api.php?overTimeData10mins".to_string())
+        self.simple_json_request("/admin/api.php?overTimeData10mins")
             .await
     }
 
     /// Get the top domains and ads and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
     pub async fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, Box<dyn Error>> {
-        self.authenticated_json_request(format!("/admin/api.php?topItems={}", count.unwrap_or(10)))
+        self.authenticated_json_request(&format!("/admin/api.php?topItems={}", count.unwrap_or(10)))
             .await
     }
 
     /// Get the top clients and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
     pub async fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, Box<dyn Error>> {
-        self.authenticated_json_request(format!(
+        self.authenticated_json_request(&format!(
             "/admin/api.php?topClients={}",
             count.unwrap_or(10)
         ))
@@ -372,7 +370,7 @@ impl PiHoleAPI {
         &self,
         count: Option<u32>,
     ) -> Result<TopClientsBlocked, Box<dyn Error>> {
-        self.authenticated_json_request(format!(
+        self.authenticated_json_request(&format!(
             "/admin/api.php?topClientsBlocked={}",
             count.unwrap_or(10)
         ))
@@ -382,14 +380,14 @@ impl PiHoleAPI {
     /// Get the number of queries forwarded and the target.
     /// API key required.
     pub async fn get_forward_destinations(&self) -> Result<ForwardDestinations, Box<dyn Error>> {
-        self.authenticated_json_request("/admin/api.php?getForwardDestinations".to_string())
+        self.authenticated_json_request("/admin/api.php?getForwardDestinations")
             .await
     }
 
     /// Get the number of queries per type.
     /// API key required.
     pub async fn get_query_types(&self) -> Result<QueryTypes, Box<dyn Error>> {
-        self.authenticated_json_request("/admin/api.php?getQueryTypes".to_string())
+        self.authenticated_json_request("/admin/api.php?getQueryTypes")
             .await
     }
 
@@ -397,7 +395,7 @@ impl PiHoleAPI {
     /// API key required.
     pub async fn get_all_queries(&self, count: u32) -> Result<AllQueries, Box<dyn Error>> {
         let mut raw_data: HashMap<String, Vec<Vec<String>>> = self
-            .authenticated_json_request(format!("/admin/api.php?getAllQueries={}", count))
+            .authenticated_json_request(&format!("/admin/api.php?getAllQueries={}", count))
             .await?;
 
         // Convert the queries from a list into a more useful Query struct
@@ -421,28 +419,27 @@ impl PiHoleAPI {
     /// Enable the Pi-Hole.
     /// API key required.
     pub async fn enable(&self) -> Result<Status, Box<dyn Error>> {
-        self.authenticated_json_request("/admin/api.php?enable".to_string())
+        self.authenticated_json_request("/admin/api.php?enable")
             .await
     }
 
     /// Disable the Pi-Hole for `seconds` seconds.
     /// API key required.
     pub async fn disable(&self, seconds: u64) -> Result<Status, Box<dyn Error>> {
-        self.authenticated_json_request(format!("/admin/api.php?disable={}", seconds))
+        self.authenticated_json_request(&format!("/admin/api.php?disable={}", seconds))
             .await
     }
 
     /// Get the Pi-Hole version.
     pub async fn get_version(&self) -> Result<Version, Box<dyn Error>> {
-        self.simple_json_request("/admin/api.php?version".to_string())
-            .await
+        self.simple_json_request("/admin/api.php?version").await
     }
 
     /// Get statistics about the DNS cache.
     /// API key required.
     pub async fn get_cache_info(&self) -> Result<CacheInfo, Box<dyn Error>> {
         let mut raw_data: HashMap<String, CacheInfo> = self
-            .authenticated_json_request("/admin/api.php?getCacheInfo".to_string())
+            .authenticated_json_request("/admin/api.php?getCacheInfo")
             .await?;
         Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
     }
@@ -451,7 +448,7 @@ impl PiHoleAPI {
     /// API key required.
     pub async fn get_client_names(&self) -> Result<Vec<ClientName>, Box<dyn Error>> {
         let mut raw_data: HashMap<String, Vec<ClientName>> = self
-            .authenticated_json_request("/admin/api.php?getClientNames".to_string())
+            .authenticated_json_request("/admin/api.php?getClientNames")
             .await?;
         Ok(raw_data
             .remove("clients")
@@ -465,7 +462,7 @@ impl PiHoleAPI {
         &self,
     ) -> Result<HashMap<u64, Vec<u64>>, Box<dyn Error>> {
         let mut raw_data: HashMap<String, HashMap<u64, Vec<u64>>> = self
-            .authenticated_json_request("/admin/api.php?overTimeDataClients".to_string())
+            .authenticated_json_request("/admin/api.php?overTimeDataClients")
             .await?;
         Ok(raw_data
             .remove("over_time")
@@ -475,7 +472,7 @@ impl PiHoleAPI {
     /// Get information about network clients.
     /// API key required.
     pub async fn get_network(&self) -> Result<Network, Box<dyn Error>> {
-        self.authenticated_json_request("/admin/api_db.php?network".to_string())
+        self.authenticated_json_request("/admin/api_db.php?network")
             .await
     }
 
@@ -483,7 +480,7 @@ impl PiHoleAPI {
     /// API key required.
     pub async fn get_queries_count(&self) -> Result<u64, Box<dyn Error>> {
         let mut raw_data: HashMap<String, u64> = self
-            .authenticated_json_request("/admin/api_db.php?getQueriesCount".to_string())
+            .authenticated_json_request("/admin/api_db.php?getQueriesCount")
             .await?;
         Ok(raw_data.remove("count").expect("Missing count attribute"))
     }
@@ -491,7 +488,7 @@ impl PiHoleAPI {
     /// Add domains to a list.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     /// API key required.
-    pub async fn add(&self, domains: Vec<String>, list: String) -> Result<(), Box<dyn Error>> {
+    pub async fn add(&self, domains: Vec<&str>, list: &str) -> Result<(), Box<dyn Error>> {
         let url = format!(
             "{}/admin/api.php?add={}&list={}&auth={}",
             self.host,
