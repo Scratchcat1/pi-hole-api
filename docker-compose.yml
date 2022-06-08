@@ -1,0 +1,13 @@
+version: "3"
+
+# More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
+services:
+  pihole:
+    container_name: pi-hole-api-pihole-test-instance
+    image: pihole/pihole:latest
+    ports:
+      - "127.0.0.1:53:53/tcp"
+      - "127.0.0.1:53:53/udp"
+      - "127.0.0.1:80:80/tcp"
+    environment:
+      WEBPASSWORD: 'pi-hole-api-test-environment-only'

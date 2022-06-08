@@ -1,9 +1,52 @@
 use reqwest::{self};
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{de::DeserializeOwned, de::Deserializer, Deserialize};
 use simple_error;
 use std::collections::HashMap;
 use std::error::Error;
 use std::net::IpAddr;
+
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum FakeHashMap<K, V>
+where
+    K: std::cmp::Eq + std::hash::Hash,
+{
+    HashMap(HashMap<K, V>),
+    EmptyList(Vec<V>),
+}
+
+impl<'a, K, V> FakeHashMap<K, V>
+where
+    K: std::cmp::Eq + std::hash::Hash,
+{
+    pub fn into_hash_map(self) -> HashMap<K, V> {
+        self.into()
+    }
+}
+
+impl<K, V> From<FakeHashMap<K, V>> for HashMap<K, V>
+where
+    K: std::cmp::Eq + std::hash::Hash,
+{
+    fn from(item: FakeHashMap<K, V>) -> Self {
+        match item {
+            FakeHashMap::HashMap(h) => h,
+            FakeHashMap::EmptyList(_) => HashMap::new(),
+        }
+    }
+}
+
+fn deserialize_fake_hash_map<
+    'de,
+    D: Deserializer<'de>,
+    K: std::cmp::Eq + std::hash::Hash + Deserialize<'de>,
+    V: Deserialize<'de>,
+>(
+    deserializer: D,
+) -> Result<HashMap<K, V>, D::Error> {
+    let result = FakeHashMap::deserialize(deserializer)?;
+    Ok(result.into())
+}
 
 /// Summary Raw Struct
 #[derive(Deserialize, Debug)]
@@ -121,19 +164,23 @@ pub struct Summary {
 #[derive(Deserialize, Debug)]
 pub struct OverTimeData {
     /// Mapping from time to number of domains
-    pub domains_over_time: HashMap<i64, u64>,
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
+    pub domains_over_time: HashMap<String, u64>,
 
     /// Mapping from time to number of ads
-    pub ads_over_time: HashMap<i64, u64>,
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
+    pub ads_over_time: HashMap<String, u64>,
 }
 
 /// Top Items Struct
 #[derive(Deserialize, Debug)]
 pub struct TopItems {
     /// Top queries mapping from domain to number of requests
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
     pub top_queries: HashMap<String, u64>,
 
     /// Top ads mapping from domain to number of requests
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
     pub top_ads: HashMap<String, u64>,
 }
 
@@ -141,6 +188,7 @@ pub struct TopItems {
 #[derive(Deserialize, Debug)]
 pub struct TopClients {
     /// Top sources mapping from "IP" or "hostname|IP" to number of requests.
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
     pub top_sources: HashMap<String, u64>,
 }
 
@@ -148,6 +196,7 @@ pub struct TopClients {
 #[derive(Deserialize, Debug)]
 pub struct TopClientsBlocked {
     /// Top sources blocked mapping from "IP" or "hostname|IP" to number of blocked requests.
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
     pub top_sources_blocked: HashMap<String, u64>,
 }
 
@@ -155,6 +204,7 @@ pub struct TopClientsBlocked {
 #[derive(Deserialize, Debug)]
 pub struct ForwardDestinations {
     /// Forward destinations mapping from "human_readable_name|IP" to the percentage of requests answered.
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
     pub forward_destinations: HashMap<String, f64>,
 }
 
@@ -162,6 +212,7 @@ pub struct ForwardDestinations {
 #[derive(Deserialize, Debug)]
 pub struct QueryTypes {
     /// Query types mapping from query type (A, AAAA, PTR, etc.) to the percentage of queries which are of that type.
+    #[serde(deserialize_with = "deserialize_fake_hash_map")]
     pub querytypes: HashMap<String, f64>,
 }
 
@@ -247,7 +298,7 @@ pub struct NetworkClient {
     pub interface: String,
 
     /// Hostname
-    pub name: String,
+    pub name: Vec<String>,
 
     /// Time first seen
     #[serde(rename = "firstSeen")]
@@ -298,6 +349,13 @@ impl PiHoleAPI {
         T: DeserializeOwned,
     {
         let response = reqwest::get(&format!("{}{}", self.host, path_query)).await?;
+        println!(
+            "{:?}",
+            reqwest::get(&format!("{}{}", self.host, path_query))
+                .await?
+                .text()
+                .await?
+        );
         Ok(response.json().await?)
     }
 
@@ -328,6 +386,7 @@ impl PiHoleAPI {
             }
         }
         let response = reqwest::get(&auth_path_query).await?;
+        println!("{:?}", reqwest::get(&auth_path_query).await?.text().await?);
         Ok(response.json().await?)
     }
 
