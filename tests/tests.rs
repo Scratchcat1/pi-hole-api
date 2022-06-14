@@ -3,9 +3,12 @@ use pi_hole_api::PiHoleAPI;
 use std::env;
 use std::net::SocketAddr;
 use std::str::FromStr;
+// use std::{thread, time};
 use test_context::{test_context, TestContext};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::Resolver;
+
+// const DNS_QUERY_DELAY: time::Duration = time::Duration::from_millis(10);
 
 fn pi_hole_api_test_target() -> String {
     env::var("PI_HOLE_API_TEST_TARGET").expect("Missing environmental var PI_HOLE_API_TEST_TARGET")
@@ -30,12 +33,23 @@ fn pi_hole_api_test_api_key() -> Option<String> {
 
 struct PiHoleTestContext {
     resolver: Resolver,
-    api: PiHoleAPI,
+    authenticated_api: PiHoleAPI,
+    unauthenticated_api: PiHoleAPI,
 }
 
-#[async_trait::async_trait]
-impl TestContext for PiHoleTestContext {
-    fn setup() -> PiHoleTestContext {
+impl PiHoleTestContext {
+    pub fn new() -> Self {
+        Self {
+            resolver: Self::create_resolver(),
+            unauthenticated_api: PiHoleAPI::new(test_target_http_address(), None),
+            authenticated_api: PiHoleAPI::new(
+                test_target_http_address(),
+                pi_hole_api_test_api_key(),
+            ),
+        }
+    }
+
+    fn create_resolver() -> Resolver {
         let name_server = NameServerConfig {
             socket_addr: SocketAddr::from_str(&test_target_dns_address())
                 .expect("Failed to parse test target IP address"),
@@ -46,143 +60,138 @@ impl TestContext for PiHoleTestContext {
         };
         let mut resolver_config = ResolverConfig::new();
         resolver_config.add_name_server(name_server);
-        let resolver = Resolver::new(resolver_config, ResolverOpts::default()).unwrap();
-        let api = PiHoleAPI::new(test_target_http_address(), None);
+        let mut resolver_opts = ResolverOpts::default();
+        resolver_opts.cache_size = 0;
+        Resolver::new(resolver_config, resolver_opts).unwrap()
+    }
 
-        PiHoleTestContext { resolver, api }
+    fn lookup_ip(&self, domain: &str) {
+        self.resolver.lookup_ip(domain).unwrap();
+        // thread::sleep(DNS_QUERY_DELAY);
+    }
+}
+
+impl TestContext for PiHoleTestContext {
+    fn setup() -> PiHoleTestContext {
+        PiHoleTestContext::new()
     }
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_summary_raw_test(ctx: &mut PiHoleTestContext) {
-    match ctx.api.get_summary_raw() {
-        Ok(summary_raw) => assert!(
-            summary_raw.status == "enabled" || summary_raw.status == "disabled",
-            "Pi-Hole is neither enabled nor disabled"
-        ),
-        Err(e) => assert!(false, "Failed to get summary raw: {}", e),
-    };
+    let summary_raw = ctx.unauthenticated_api.get_summary_raw().unwrap();
+    assert!(
+        summary_raw.status == "enabled" || summary_raw.status == "disabled",
+        "Pi-Hole is neither enabled nor disabled"
+    );
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_summary_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), None);
-    match api.get_summary() {
-        Ok(summary) => assert!(
-            summary.status == "enabled" || summary.status == "disabled",
-            "Pi-Hole is neither enabled nor disabled"
-        ),
-        Err(e) => assert!(false, "Failed to get summary: {}", e),
-    };
+    let summary = ctx.unauthenticated_api.get_summary().unwrap();
+    assert!(
+        summary.status == "enabled" || summary.status == "disabled",
+        "Pi-Hole is neither enabled nor disabled"
+    );
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_over_time_data_10_mins_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), None);
-    match api.get_over_time_data_10_mins() {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to get over time data 10 minutes: {}", e),
-    };
+    ctx.lookup_ip("google.com");
+    let over_time_data = ctx
+        .unauthenticated_api
+        .get_over_time_data_10_mins()
+        .unwrap();
+    assert!(over_time_data.domains_over_time.len() >= 1);
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_top_items_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_top_items(None) {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    ctx.lookup_ip("google.com");
 
-    match api.get_top_items(Some(1)) {
-        Ok(top_items) => {
-            assert!(top_items.top_queries.len() <= 1);
-        }
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    let top_items = ctx.authenticated_api.get_top_items(None).unwrap();
+    assert!(top_items.top_queries.len() >= 1);
 
-    match api.get_top_items(Some(100)) {
-        Ok(top_items) => {
-            assert!(top_items.top_queries.len() <= 100);
-        }
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    let top_items = ctx.authenticated_api.get_top_items(Some(1)).unwrap();
+    assert_eq!(top_items.top_queries.len(), 1);
+    let top_query_count = top_items.top_queries.values().next().unwrap();
+
+    // Test the top query increases
+    let top_query = top_items.top_queries.keys().next().unwrap();
+    ctx.lookup_ip(top_query);
+    let top_items = ctx.authenticated_api.get_top_items(Some(1)).unwrap();
+    assert_eq!(
+        *top_items.top_queries.values().next().unwrap(),
+        *top_query_count + 1
+    );
+
+    let top_items = ctx.authenticated_api.get_top_items(Some(100)).unwrap();
+    assert!(top_items.top_queries.len() <= 100);
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_top_clients_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_top_clients(None) {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    ctx.lookup_ip("google.com");
+    let top_clients = ctx.authenticated_api.get_top_clients(None).unwrap();
+    assert!(top_clients.top_sources.len() >= 1);
 
-    match api.get_top_clients(Some(1)) {
-        Ok(top_clients) => {
-            assert!(top_clients.top_sources.len() <= 1);
-        }
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    let top_clients = ctx.authenticated_api.get_top_clients(Some(1)).unwrap();
+    assert!(top_clients.top_sources.len() <= 1);
 
-    match api.get_top_clients(Some(100)) {
-        Ok(top_clients) => {
-            assert!(top_clients.top_sources.len() <= 100);
-        }
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    let top_clients = ctx.authenticated_api.get_top_clients(Some(100)).unwrap();
+    assert!(top_clients.top_sources.len() <= 100);
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_top_clients_blocked_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_top_clients_blocked(None) {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    ctx.lookup_ip("analytics.query.yahoo.com");
+    let top_clients_blocked = ctx.authenticated_api.get_top_clients_blocked(None).unwrap();
+    assert!(top_clients_blocked.top_sources_blocked.len() >= 1);
 
-    match api.get_top_clients_blocked(Some(1)) {
-        Ok(top_clients_blocked) => {
-            assert!(top_clients_blocked.top_sources_blocked.len() <= 1);
-        }
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    let top_clients_blocked = ctx
+        .authenticated_api
+        .get_top_clients_blocked(Some(1))
+        .unwrap();
 
-    match api.get_top_clients_blocked(Some(100)) {
-        Ok(top_clients_blocked) => {
-            assert!(top_clients_blocked.top_sources_blocked.len() <= 100);
-        }
-        Err(e) => assert!(false, "Failed to get top items: {}", e),
-    };
+    assert!(top_clients_blocked.top_sources_blocked.len() <= 1);
+    let top_clients_blocked = ctx
+        .authenticated_api
+        .get_top_clients_blocked(Some(100))
+        .unwrap();
+
+    assert!(top_clients_blocked.top_sources_blocked.len() <= 100);
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_forward_destinations_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_forward_destinations() {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to get forward destinations: {}", e),
-    };
+    let forward_destination = ctx.authenticated_api.get_forward_destinations().unwrap();
+    assert!(forward_destination.forward_destinations.len() >= 1);
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_query_types_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_query_types() {
-        Ok(query_types) => {
-            assert!(query_types.querytypes.get("A (IPv4)").expect("Missing key") >= &0.0);
-        }
-        Err(e) => assert!(false, "Failed to get query types: {}", e),
-    };
+    ctx.lookup_ip("google.com");
+    let query_types = ctx.authenticated_api.get_query_types().unwrap();
+
+    assert!(query_types.querytypes.get("A (IPv4)").expect("Missing key") >= &0.0);
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_all_queries_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_all_queries(100) {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to get all queries: {}", e),
-    };
+    ctx.lookup_ip("google.com");
+    let queries = ctx.authenticated_api.get_all_queries(100).unwrap();
+    assert!(queries.data.len() >= 1);
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn enable_test(ctx: &mut PiHoleTestContext) {
@@ -194,6 +203,7 @@ fn enable_test(ctx: &mut PiHoleTestContext) {
         Err(e) => assert!(false, "Failed to enable pi-hole: {}", e),
     };
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn disable_test(ctx: &mut PiHoleTestContext) {
@@ -206,6 +216,7 @@ fn disable_test(ctx: &mut PiHoleTestContext) {
     };
     api.enable().expect("Failed to reenable pi-hole after test");
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn version_test(ctx: &mut PiHoleTestContext) {
@@ -217,6 +228,7 @@ fn version_test(ctx: &mut PiHoleTestContext) {
         Err(e) => assert!(false, "Failed to get version: {}", e),
     };
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_cache_info_test(ctx: &mut PiHoleTestContext) {
@@ -226,6 +238,7 @@ fn get_cache_info_test(ctx: &mut PiHoleTestContext) {
         Err(e) => assert!(false, "Failed to get cache info: {}", e),
     };
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_client_names_test(ctx: &mut PiHoleTestContext) {
@@ -237,6 +250,7 @@ fn get_client_names_test(ctx: &mut PiHoleTestContext) {
         Err(e) => assert!(false, "Failed to get client names: {}", e),
     };
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_over_time_data_clients_test(ctx: &mut PiHoleTestContext) {
@@ -248,6 +262,7 @@ fn get_over_time_data_clients_test(ctx: &mut PiHoleTestContext) {
         Err(e) => assert!(false, "Failed to get over time data clients: {}", e),
     };
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_network_test(ctx: &mut PiHoleTestContext) {
@@ -259,6 +274,7 @@ fn get_network_test(ctx: &mut PiHoleTestContext) {
         Err(e) => assert!(false, "Failed to get network information: {}", e),
     };
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
@@ -270,6 +286,7 @@ fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
         Err(e) => assert!(false, "Failed to get network information: {}", e),
     };
 }
+
 #[test_context(PiHoleTestContext)]
 #[test]
 fn add_test(ctx: &mut PiHoleTestContext) {

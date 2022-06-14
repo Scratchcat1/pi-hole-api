@@ -239,7 +239,7 @@ pub struct Query {
 #[derive(Deserialize, Debug)]
 pub struct AllQueries {
     /// List of queries
-    data: Vec<Query>,
+    pub data: Vec<Query>,
 }
 
 /// Status Struct
@@ -537,7 +537,7 @@ impl PiHoleAPI {
             self.api_key.as_ref().unwrap_or(&"".to_string())
         );
         let body = reqwest::blocking::get(&url)?.text()?;
-        match body.contains("Success") {
+        match body.contains("success") {
             true => Ok(()),
             false => simple_error::bail!("Pi-Hole API error: ".to_string() + &body),
         }
