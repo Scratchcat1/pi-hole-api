@@ -1,9 +1,8 @@
 use reqwest;
 use serde::{de::DeserializeOwned, Deserialize};
-use simple_error;
 use std::collections::HashMap;
-use std::error::Error;
 use std::net::IpAddr;
+mod errors;
 mod fake_hash_map;
 
 /// Summary Raw Struct
@@ -302,7 +301,7 @@ impl PiHoleAPI {
         self.api_key = Some(api_key);
     }
 
-    fn simple_json_request<T>(&self, path_query: &str) -> Result<T, Box<dyn Error>>
+    fn simple_json_request<T>(&self, path_query: &str) -> Result<T, errors::APIError>
     where
         T: DeserializeOwned,
     {
@@ -314,12 +313,12 @@ impl PiHoleAPI {
         Ok(response.json()?)
     }
 
-    fn authenticated_json_request<T>(&self, path_query: &str) -> Result<T, Box<dyn Error>>
+    fn authenticated_json_request<T>(&self, path_query: &str) -> Result<T, errors::APIError>
     where
         T: DeserializeOwned,
     {
         if self.api_key.is_none() {
-            simple_error::bail!("API key is required for authenticated requests");
+            return Err(errors::APIError::MissingAPIKey);
         }
         let auth_path_query;
         match path_query.contains("?") {
@@ -346,29 +345,29 @@ impl PiHoleAPI {
     }
 
     /// Get statistics in a raw format (no number format)
-    pub fn get_summary_raw(&self) -> Result<SummaryRaw, Box<dyn Error>> {
+    pub fn get_summary_raw(&self) -> Result<SummaryRaw, errors::APIError> {
         self.simple_json_request(&"/admin/api.php?summaryRaw")
     }
 
     /// Get statistics in a formatted style
-    pub fn get_summary(&self) -> Result<Summary, Box<dyn Error>> {
+    pub fn get_summary(&self) -> Result<Summary, errors::APIError> {
         self.simple_json_request("/admin/api.php?summary")
     }
 
     /// Get statistics on the number of domains and ads for each 10 minute period
-    pub fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, Box<dyn Error>> {
+    pub fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, errors::APIError> {
         self.simple_json_request("/admin/api.php?overTimeData10mins")
     }
 
     /// Get the top domains and ads and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
-    pub fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, Box<dyn Error>> {
+    pub fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, errors::APIError> {
         self.authenticated_json_request(&format!("/admin/api.php?topItems={}", count.unwrap_or(10)))
     }
 
     /// Get the top clients and the number of queries for each. Limit the number of items with `count`.
     /// API key required.
-    pub fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, Box<dyn Error>> {
+    pub fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, errors::APIError> {
         self.authenticated_json_request(&format!(
             "/admin/api.php?topClients={}",
             count.unwrap_or(10)
@@ -380,7 +379,7 @@ impl PiHoleAPI {
     pub fn get_top_clients_blocked(
         &self,
         count: Option<u32>,
-    ) -> Result<TopClientsBlocked, Box<dyn Error>> {
+    ) -> Result<TopClientsBlocked, errors::APIError> {
         self.authenticated_json_request(&format!(
             "/admin/api.php?topClientsBlocked={}",
             count.unwrap_or(10)
@@ -389,19 +388,19 @@ impl PiHoleAPI {
 
     /// Get the number of queries forwarded and the target.
     /// API key required.
-    pub fn get_forward_destinations(&self) -> Result<ForwardDestinations, Box<dyn Error>> {
+    pub fn get_forward_destinations(&self) -> Result<ForwardDestinations, errors::APIError> {
         self.authenticated_json_request("/admin/api.php?getForwardDestinations")
     }
 
     /// Get the number of queries per type.
     /// API key required.
-    pub fn get_query_types(&self) -> Result<QueryTypes, Box<dyn Error>> {
+    pub fn get_query_types(&self) -> Result<QueryTypes, errors::APIError> {
         self.authenticated_json_request("/admin/api.php?getQueryTypes")
     }
 
     /// Get all DNS query data. Limit the number of items with `count`.
     /// API key required.
-    pub fn get_all_queries(&self, count: u32) -> Result<AllQueries, Box<dyn Error>> {
+    pub fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError> {
         let mut raw_data: HashMap<String, Vec<Vec<String>>> =
             self.authenticated_json_request(&format!("/admin/api.php?getAllQueries={}", count))?;
 
@@ -425,24 +424,24 @@ impl PiHoleAPI {
 
     /// Enable the Pi-Hole.
     /// API key required.
-    pub fn enable(&self) -> Result<Status, Box<dyn Error>> {
+    pub fn enable(&self) -> Result<Status, errors::APIError> {
         self.authenticated_json_request("/admin/api.php?enable")
     }
 
     /// Disable the Pi-Hole for `seconds` seconds.
     /// API key required.
-    pub fn disable(&self, seconds: u64) -> Result<Status, Box<dyn Error>> {
+    pub fn disable(&self, seconds: u64) -> Result<Status, errors::APIError> {
         self.authenticated_json_request(&format!("/admin/api.php?disable={}", seconds))
     }
 
     /// Get the Pi-Hole version.
-    pub fn get_version(&self) -> Result<Version, Box<dyn Error>> {
+    pub fn get_version(&self) -> Result<Version, errors::APIError> {
         self.simple_json_request("/admin/api.php?version")
     }
 
     /// Get statistics about the DNS cache.
     /// API key required.
-    pub fn get_cache_info(&self) -> Result<CacheInfo, Box<dyn Error>> {
+    pub fn get_cache_info(&self) -> Result<CacheInfo, errors::APIError> {
         let mut raw_data: HashMap<String, CacheInfo> =
             self.authenticated_json_request("/admin/api.php?getCacheInfo")?;
         Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
@@ -450,7 +449,7 @@ impl PiHoleAPI {
 
     /// Get hostname and IP for hosts
     /// API key required.
-    pub fn get_client_names(&self) -> Result<Vec<ClientName>, Box<dyn Error>> {
+    pub fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError> {
         let mut raw_data: HashMap<String, Vec<ClientName>> =
             self.authenticated_json_request("/admin/api.php?getClientNames")?;
         Ok(raw_data
@@ -461,7 +460,7 @@ impl PiHoleAPI {
     /// Get queries by client over time. Maps timestamp to the number of queries by clients.
     /// Order of clients in the Vector is the same as for get_client_names
     /// API key required.
-    pub fn get_over_time_data_clients(&self) -> Result<HashMap<u64, Vec<u64>>, Box<dyn Error>> {
+    pub fn get_over_time_data_clients(&self) -> Result<HashMap<u64, Vec<u64>>, errors::APIError> {
         let mut raw_data: HashMap<String, HashMap<u64, Vec<u64>>> =
             self.authenticated_json_request("/admin/api.php?overTimeDataClients")?;
         Ok(raw_data
@@ -471,13 +470,13 @@ impl PiHoleAPI {
 
     /// Get information about network clients.
     /// API key required.
-    pub fn get_network(&self) -> Result<Network, Box<dyn Error>> {
+    pub fn get_network(&self) -> Result<Network, errors::APIError> {
         self.authenticated_json_request("/admin/api_db.php?network")
     }
 
     /// Get the total number of queries received.
     /// API key required.
-    pub fn get_queries_count(&self) -> Result<u64, Box<dyn Error>> {
+    pub fn get_queries_count(&self) -> Result<u64, errors::APIError> {
         let mut raw_data: HashMap<String, u64> =
             self.authenticated_json_request("/admin/api_db.php?getQueriesCount")?;
         Ok(raw_data.remove("count").expect("Missing count attribute"))
@@ -486,7 +485,7 @@ impl PiHoleAPI {
     /// Add domains to a list.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     /// API key required.
-    pub fn add(&self, domains: Vec<&str>, list: &str) -> Result<(), Box<dyn Error>> {
+    pub fn add(&self, domains: Vec<&str>, list: &str) -> Result<(), errors::APIError> {
         let url = format!(
             "{}/admin/api.php?add={}&list={}&auth={}",
             self.host,
@@ -494,10 +493,7 @@ impl PiHoleAPI {
             list,
             self.api_key.as_ref().unwrap_or(&"".to_string())
         );
-        let body = reqwest::blocking::get(&url)?.text()?;
-        match body.contains("success") {
-            true => Ok(()),
-            false => simple_error::bail!("Pi-Hole API error: ".to_string() + &body),
-        }
+        reqwest::blocking::get(&url)?.text()?;
+        Ok(())
     }
 }
