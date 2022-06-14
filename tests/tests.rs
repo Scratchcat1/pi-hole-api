@@ -10,10 +10,6 @@ use trust_dns_resolver::Resolver;
 
 // const DNS_QUERY_DELAY: time::Duration = time::Duration::from_millis(10);
 
-fn pi_hole_api_test_target() -> String {
-    env::var("PI_HOLE_API_TEST_TARGET").expect("Missing environmental var PI_HOLE_API_TEST_TARGET")
-}
-
 fn test_target_http_address() -> String {
     env::var("PI_HOLE_API_TEST_TARGET_HTTP_ADDRESS")
         .expect("Missing environmental var PI_HOLE_API_TEST_TARGET_HTTP_ADDRESS")
@@ -190,109 +186,79 @@ fn get_all_queries_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
     let queries = ctx.authenticated_api.get_all_queries(100).unwrap();
     assert!(queries.data.len() >= 1);
+    assert!(queries
+        .data
+        .iter()
+        .any(|query| query.domain == "google.com"));
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn enable_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.enable() {
-        Ok(status) => {
-            assert!(status.status == "enabled");
-        }
-        Err(e) => assert!(false, "Failed to enable pi-hole: {}", e),
-    };
+    let status = ctx.authenticated_api.enable().unwrap();
+    assert!(status.status == "enabled");
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn disable_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.disable(10) {
-        Ok(status) => {
-            assert!(status.status == "disabled");
-        }
-        Err(e) => assert!(false, "Failed to disable pi-hole: {}", e),
-    };
-    api.enable().expect("Failed to reenable pi-hole after test");
+    let status = ctx.authenticated_api.disable(10).unwrap();
+    assert!(status.status == "disabled");
+
+    ctx.authenticated_api
+        .enable()
+        .expect("Failed to reenable pi-hole after test");
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn version_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), None);
-    match api.get_version() {
-        Ok(version) => {
-            assert!(version.version >= 3);
-        }
-        Err(e) => assert!(false, "Failed to get version: {}", e),
-    };
+    let version = ctx.unauthenticated_api.get_version().unwrap();
+    assert!(version.version >= 3);
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_cache_info_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_cache_info() {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to get cache info: {}", e),
-    };
+    ctx.lookup_ip("google.com");
+    let cache_info = ctx.authenticated_api.get_cache_info().unwrap();
+    assert!(cache_info.cache_inserted > 0);
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_client_names_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_client_names() {
-        Ok(client_names) => {
-            assert!(client_names.len() > 0);
-        }
-        Err(e) => assert!(false, "Failed to get client names: {}", e),
-    };
+    ctx.lookup_ip("google.com");
+    let client_names = ctx.authenticated_api.get_client_names().unwrap();
+    assert!(client_names.len() > 0);
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_over_time_data_clients_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_over_time_data_clients() {
-        Ok(over_time_data_clients) => {
-            assert!(over_time_data_clients.len() > 0);
-        }
-        Err(e) => assert!(false, "Failed to get over time data clients: {}", e),
-    };
+    ctx.lookup_ip("google.com");
+    let over_time_data_clients = ctx.authenticated_api.get_over_time_data_clients().unwrap();
+    assert!(over_time_data_clients.len() > 0);
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_network_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_network() {
-        Ok(network) => {
-            assert!(network.network.len() > 0);
-        }
-        Err(e) => assert!(false, "Failed to get network information: {}", e),
-    };
+    // This takes a while to update the DB so testing for change is difficult
+    ctx.authenticated_api.get_network().unwrap();
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.get_queries_count() {
-        Ok(count) => {
-            assert!(count > 0);
-        }
-        Err(e) => assert!(false, "Failed to get network information: {}", e),
-    };
+    // This takes a while to update the DB so testing for change is difficult
+    ctx.authenticated_api.get_queries_count().unwrap();
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
 fn add_test(ctx: &mut PiHoleTestContext) {
-    let api = pi_hole_api::PiHoleAPI::new(pi_hole_api_test_target(), pi_hole_api_test_api_key());
-    match api.add(vec!["testdomain.foo"], "white") {
-        Ok(_) => {}
-        Err(e) => assert!(false, "Failed to add domain to list: {}", e),
-    };
+    ctx.authenticated_api
+        .add(vec!["testdomain.foo"], "white")
+        .unwrap();
 }
