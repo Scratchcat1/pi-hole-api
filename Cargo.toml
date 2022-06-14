@@ -15,6 +15,10 @@ categories = ["api-bindings"]
 
 [dependencies]
 serde = { version = "1.0.137", features = ["derive"] }
-reqwest = { version = "0.11.10", features = ["json"] }
-tokio = { version = "1.19.2", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.11.10", features = ["blocking", "json"] }
 simple-error = "0.2.1"
+
+[dev-dependencies]
+trust-dns-resolver = "0.21.2"
+test-context = "0.1.3"
+async-trait = "0.1.56"

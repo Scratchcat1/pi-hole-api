@@ -6,11 +6,10 @@ Rust library for interacting with the Pi Hole PHP API.
 ```rust
 use pi_hole_api::PiHoleAPI;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api = PiHoleAPI::new("http://192.168.0.100".to_string(), None);
 
-    let status = api.get_summary().await?;
+    let status = api.get_summary()?;
     println!("{:?}", status);
     Ok(())
 }
@@ -20,15 +19,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```rust
 use pi_hole_api::PiHoleAPI;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // Replace the address and key with those of your Pi Hole
     let api = PiHoleAPI::new(
         "http://192.168.0.100".to_string(),
         Some("YOUR_API_KEY".to_string()),
     );
 
-    match api.get_queries_count().await {
+    match api.get_queries_count() {
         Ok(status) => println!("Total number of queries: {:?}", status),
         Err(e) => panic!("Request failed, check your address and api key: {:?}", e),
     };
