@@ -1,5 +1,4 @@
 use crate::fake_hash_map::FakeHashMap;
-use reqwest;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -317,32 +316,23 @@ impl PiHoleAPI {
         if self.api_key.is_none() {
             return Err(errors::APIError::MissingAPIKey);
         }
-        let auth_path_query;
-        match path_query.contains("?") {
-            true => {
-                auth_path_query = format!(
-                    "{}{}&auth={}",
-                    self.host,
-                    path_query,
-                    self.api_key.as_ref().unwrap()
-                )
-            }
-            false => {
-                auth_path_query = format!(
-                    "{}{}?auth={}",
-                    self.host,
-                    path_query,
-                    self.api_key.as_ref().unwrap()
-                )
-            }
-        }
+
+        let joining_char = if path_query.contains('?') { '&' } else { '?' };
+        let auth_path_query = format!(
+            "{}{}{}auth={}",
+            self.host,
+            path_query,
+            joining_char,
+            self.api_key.as_ref().unwrap()
+        );
         let response = reqwest::blocking::get(&auth_path_query)?;
+        println!("{:?}", reqwest::blocking::get(&auth_path_query)?.text()?);
         Ok(response.json()?)
     }
 
     /// Get statistics in a raw format (no number format)
     pub fn get_summary_raw(&self) -> Result<SummaryRaw, errors::APIError> {
-        self.simple_json_request(&"/admin/api.php?summaryRaw")
+        self.simple_json_request("/admin/api.php?summaryRaw")
     }
 
     /// Get statistics in a formatted style
@@ -397,13 +387,12 @@ impl PiHoleAPI {
     /// Get all DNS query data. Limit the number of items with `count`.
     /// API key required.
     pub fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError> {
-        let raw_data: FakeHashMap<String, Vec<Vec<String>>> =
+        let raw_data: HashMap<String, Vec<Vec<String>>> =
             self.authenticated_json_request(&format!("/admin/api.php?getAllQueries={}", count))?;
-        let raw_map: HashMap<String, Vec<Vec<String>>> = raw_data.into();
 
         // Convert the queries from a list into a more useful Query struct
         let data = AllQueries {
-            data: raw_map
+            data: raw_data
                 .get("data")
                 .unwrap()
                 .iter()
@@ -439,19 +428,17 @@ impl PiHoleAPI {
     /// Get statistics about the DNS cache.
     /// API key required.
     pub fn get_cache_info(&self) -> Result<CacheInfo, errors::APIError> {
-        let raw_data: FakeHashMap<String, CacheInfo> =
+        let mut raw_data: HashMap<String, CacheInfo> =
             self.authenticated_json_request("/admin/api.php?getCacheInfo")?;
-        let mut raw_map: HashMap<String, CacheInfo> = raw_data.into();
-        Ok(raw_map.remove("cacheinfo").expect("Missing cache info"))
+        Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
     }
 
     /// Get hostname and IP for hosts
     /// API key required.
     pub fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError> {
-        let raw_data: FakeHashMap<String, Vec<ClientName>> =
+        let mut raw_data: HashMap<String, Vec<ClientName>> =
             self.authenticated_json_request("/admin/api.php?getClientNames")?;
-        let mut raw_map: HashMap<String, Vec<ClientName>> = raw_data.into();
-        Ok(raw_map
+        Ok(raw_data
             .remove("clients")
             .expect("Missing clients attribute"))
     }
@@ -459,21 +446,16 @@ impl PiHoleAPI {
     /// Get queries by client over time. Maps timestamp to the number of queries by clients.
     /// Order of clients in the Vector is the same as for get_client_names
     /// API key required.
-    pub fn get_over_time_data_clients(&self) -> Result<HashMap<u64, Vec<u64>>, errors::APIError> {
-        let raw_data: FakeHashMap<String, FakeHashMap<u64, Vec<u64>>> =
+    pub fn get_over_time_data_clients(
+        &self,
+    ) -> Result<HashMap<String, Vec<u64>>, errors::APIError> {
+        let mut raw_data: HashMap<String, FakeHashMap<String, Vec<u64>>> =
             self.authenticated_json_request("/admin/api.php?overTimeDataClients")?;
 
-        // Calling `.into()` on the outer FakeHashMap will not convert the inner map
-        // Instead call `.into()` on the inner maps and collect into a new HashMap
-        let mut new_map: HashMap<String, HashMap<u64, Vec<u64>>> = raw_data
-            .into_hash_map()
-            .into_iter()
-            .map(|(k, v)| (k, v.into()))
-            .collect();
-
-        Ok(new_map
+        Ok(raw_data
             .remove("over_time")
-            .expect("Missing over_time attribute"))
+            .expect("Missing over_time attribute")
+            .into())
     }
 
     /// Get information about network clients.
@@ -485,16 +467,15 @@ impl PiHoleAPI {
     /// Get the total number of queries received.
     /// API key required.
     pub fn get_queries_count(&self) -> Result<u64, errors::APIError> {
-        let raw_data: FakeHashMap<String, u64> =
+        let raw_data: HashMap<String, u64> =
             self.authenticated_json_request("/admin/api_db.php?getQueriesCount")?;
-        let raw_map: HashMap<String, u64> = raw_data.into();
-        Ok(*raw_map.get("count").expect("Missing count attribute"))
+        Ok(*raw_data.get("count").expect("Missing count attribute"))
     }
 
     /// Add domains to a list.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     /// API key required.
-    pub fn add(&self, domains: Vec<&str>, list: &str) -> Result<(), errors::APIError> {
+    pub fn add(&self, domains: &[&str], list: &str) -> Result<(), errors::APIError> {
         let url = format!(
             "{}/admin/api.php?add={}&list={}&auth={}",
             self.host,

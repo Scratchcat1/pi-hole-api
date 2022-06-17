@@ -255,6 +255,6 @@ fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
 #[test]
 fn add_test(ctx: &mut PiHoleTestContext) {
     ctx.authenticated_api
-        .add(vec!["testdomain.foo"], "white")
+        .add(&["testdomain.foo"], "white")
         .unwrap();
 }

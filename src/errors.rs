@@ -1,5 +1,3 @@
-use reqwest;
-
 #[derive(Debug)]
 pub enum APIError {
     RequestError(reqwest::Error),
