@@ -1,3 +1,4 @@
+use crate::fake_hash_map::FakeHashMap;
 use reqwest;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
@@ -306,10 +307,6 @@ impl PiHoleAPI {
         T: DeserializeOwned,
     {
         let response = reqwest::blocking::get(&format!("{}{}", self.host, path_query))?;
-        println!(
-            "{:?}",
-            reqwest::blocking::get(&format!("{}{}", self.host, path_query))?.text()?
-        );
         Ok(response.json()?)
     }
 
@@ -340,7 +337,6 @@ impl PiHoleAPI {
             }
         }
         let response = reqwest::blocking::get(&auth_path_query)?;
-        println!("{:?}", reqwest::blocking::get(&auth_path_query)?.text()?);
         Ok(response.json()?)
     }
 
@@ -401,13 +397,14 @@ impl PiHoleAPI {
     /// Get all DNS query data. Limit the number of items with `count`.
     /// API key required.
     pub fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError> {
-        let mut raw_data: HashMap<String, Vec<Vec<String>>> =
+        let raw_data: FakeHashMap<String, Vec<Vec<String>>> =
             self.authenticated_json_request(&format!("/admin/api.php?getAllQueries={}", count))?;
+        let raw_map: HashMap<String, Vec<Vec<String>>> = raw_data.into();
 
         // Convert the queries from a list into a more useful Query struct
         let data = AllQueries {
-            data: raw_data
-                .remove("data")
+            data: raw_map
+                .get("data")
                 .unwrap()
                 .iter()
                 .map(|raw_query| Query {
@@ -442,17 +439,19 @@ impl PiHoleAPI {
     /// Get statistics about the DNS cache.
     /// API key required.
     pub fn get_cache_info(&self) -> Result<CacheInfo, errors::APIError> {
-        let mut raw_data: HashMap<String, CacheInfo> =
+        let raw_data: FakeHashMap<String, CacheInfo> =
             self.authenticated_json_request("/admin/api.php?getCacheInfo")?;
-        Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
+        let mut raw_map: HashMap<String, CacheInfo> = raw_data.into();
+        Ok(raw_map.remove("cacheinfo").expect("Missing cache info"))
     }
 
     /// Get hostname and IP for hosts
     /// API key required.
     pub fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError> {
-        let mut raw_data: HashMap<String, Vec<ClientName>> =
+        let raw_data: FakeHashMap<String, Vec<ClientName>> =
             self.authenticated_json_request("/admin/api.php?getClientNames")?;
-        Ok(raw_data
+        let mut raw_map: HashMap<String, Vec<ClientName>> = raw_data.into();
+        Ok(raw_map
             .remove("clients")
             .expect("Missing clients attribute"))
     }
@@ -461,9 +460,18 @@ impl PiHoleAPI {
     /// Order of clients in the Vector is the same as for get_client_names
     /// API key required.
     pub fn get_over_time_data_clients(&self) -> Result<HashMap<u64, Vec<u64>>, errors::APIError> {
-        let mut raw_data: HashMap<String, HashMap<u64, Vec<u64>>> =
+        let raw_data: FakeHashMap<String, FakeHashMap<u64, Vec<u64>>> =
             self.authenticated_json_request("/admin/api.php?overTimeDataClients")?;
-        Ok(raw_data
+
+        // Calling `.into()` on the outer FakeHashMap will not convert the inner map
+        // Instead call `.into()` on the inner maps and collect into a new HashMap
+        let mut new_map: HashMap<String, HashMap<u64, Vec<u64>>> = raw_data
+            .into_hash_map()
+            .into_iter()
+            .map(|(k, v)| (k, v.into()))
+            .collect();
+
+        Ok(new_map
             .remove("over_time")
             .expect("Missing over_time attribute"))
     }
@@ -477,9 +485,10 @@ impl PiHoleAPI {
     /// Get the total number of queries received.
     /// API key required.
     pub fn get_queries_count(&self) -> Result<u64, errors::APIError> {
-        let mut raw_data: HashMap<String, u64> =
+        let raw_data: FakeHashMap<String, u64> =
             self.authenticated_json_request("/admin/api_db.php?getQueriesCount")?;
-        Ok(raw_data.remove("count").expect("Missing count attribute"))
+        let raw_map: HashMap<String, u64> = raw_data.into();
+        Ok(*raw_map.get("count").expect("Missing count attribute"))
     }
 
     /// Add domains to a list.
