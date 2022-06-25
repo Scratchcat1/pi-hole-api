@@ -1,4 +1,5 @@
 use pi_hole_api;
+use pi_hole_api::errors::APIError;
 use pi_hole_api::PiHoleAPI;
 use std::env;
 use std::net::SocketAddr;
@@ -272,7 +273,27 @@ fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
 #[test_context(PiHoleTestContext)]
 #[test]
 fn add_test(ctx: &mut PiHoleTestContext) {
-    ctx.authenticated_api
+    let response = ctx
+        .authenticated_api
         .add(&["testdomain.foo"], "white")
         .unwrap();
+    assert!(response.success);
+
+    let response = ctx.authenticated_api.add(&["testdomain.foo"], "NOT_A_LIST");
+    assert!(matches!(response.err().unwrap(), APIError::InvalidList));
+}
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn remove_test(ctx: &mut PiHoleTestContext) {
+    let response = ctx
+        .authenticated_api
+        .remove(&["x.testdomain.foo"], "white")
+        .unwrap();
+    assert!(response.success);
+
+    let response = ctx
+        .authenticated_api
+        .remove(&["x.testdomain.foo"], "NOT_A_LIST");
+    assert!(matches!(response.err().unwrap(), APIError::InvalidList));
 }

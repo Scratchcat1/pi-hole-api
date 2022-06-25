@@ -2,7 +2,7 @@ use crate::fake_hash_map::FakeHashMap;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
-mod errors;
+pub mod errors;
 mod fake_hash_map;
 
 /// Summary Raw Struct
@@ -314,6 +314,15 @@ pub struct Network {
     pub network: Vec<NetworkClient>,
 }
 
+/// List Modification Response Struct
+#[derive(Deserialize, Debug)]
+pub struct ListModificationResponse {
+    /// If request was successful
+    pub success: bool,
+    /// Optional message about request
+    pub message: Option<String>,
+}
+
 /// Pi Hole API Struct
 pub struct PiHoleAPI {
     /// Pi Hole host
@@ -511,18 +520,52 @@ impl PiHoleAPI {
         Ok(*raw_data.get("count").expect("Missing count attribute"))
     }
 
-    /// Add domains to a list.
+    /// Add domains to a custom white/blacklist.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     /// API key required.
-    pub fn add(&self, domains: &[&str], list: &str) -> Result<(), errors::APIError> {
+    pub fn add(
+        &self,
+        domains: &[&str],
+        list: &str,
+    ) -> Result<ListModificationResponse, errors::APIError> {
+        self.modify_list(domains, list, "add")
+    }
+
+    /// Remove domains to a custom white/blacklist.
+    /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
+    /// API key required.
+    pub fn remove(
+        &self,
+        domains: &[&str],
+        list: &str,
+    ) -> Result<ListModificationResponse, errors::APIError> {
+        self.modify_list(domains, list, "sub")
+    }
+
+    /// Perform a custom white/blacklist action ("add" or "sub")
+    fn modify_list(
+        &self,
+        domains: &[&str],
+        list: &str,
+        action: &str,
+    ) -> Result<ListModificationResponse, errors::APIError> {
         let url = format!(
-            "{}/admin/api.php?add={}&list={}&auth={}",
+            "{}/admin/api.php?{}={}&list={}&auth={}",
             self.host,
+            action,
             domains.join(" "),
             list,
             self.api_key.as_ref().unwrap_or(&"".to_string())
         );
-        reqwest::blocking::get(&url)?.text()?;
-        Ok(())
+
+        let response_text = reqwest::blocking::get(&url)?.text()?;
+        if response_text.starts_with("Invalid list") {
+            Err(errors::APIError::InvalidList)
+        } else {
+            match serde_json::from_str::<ListModificationResponse>(&response_text) {
+                Ok(response) => Ok(response),
+                Err(error) => Err(error.into()),
+            }
+        }
     }
 }
