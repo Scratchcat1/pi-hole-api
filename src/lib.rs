@@ -213,6 +213,39 @@ pub struct Version {
     pub version: u32,
 }
 
+/// Versions Struct
+#[derive(Deserialize, Debug)]
+pub struct Versions {
+    /// Is there an update available for Pi-hole core
+    pub core_update: bool,
+    /// Is there an update available for Pi-hole web
+    pub web_update: bool,
+    /// Is there an update available for Pi-hole FTL
+    #[serde(rename = "FTL_update")]
+    pub ftl_update: bool,
+    /// Current Pi-hole core version
+    pub core_current: String,
+    /// Current Pi-hole web version
+    pub web_current: String,
+    /// Current Pi-hole FTL version
+    #[serde(rename = "FTL_current")]
+    pub ftl_current: String,
+    /// Latest Pi-hole core version
+    pub core_latest: String,
+    /// Latest Pi-hole web version
+    pub web_latest: String,
+    /// Latest Pi-hole FTL version
+    #[serde(rename = "FTL_latest")]
+    pub ftl_latest: String,
+    /// Current Pi-hole core branch
+    pub core_branch: String,
+    /// Current Pi-hole web branch
+    pub web_branch: String,
+    /// Current Pi-hole FTL branch
+    #[serde(rename = "FTL_branch")]
+    pub ftl_branch: String,
+}
+
 /// Cache Info Struct
 #[derive(Deserialize, Debug)]
 pub struct CacheInfo {
@@ -421,8 +454,14 @@ impl PiHoleAPI {
     }
 
     /// Get the Pi-Hole version.
-    pub fn get_version(&self) -> Result<Version, errors::APIError> {
-        self.simple_json_request("/admin/api.php?version")
+    pub fn get_version(&self) -> Result<u32, errors::APIError> {
+        let raw_version: Version = self.simple_json_request("/admin/api.php?version")?;
+        Ok(raw_version.version)
+    }
+
+    /// Get the detailed Pi-Hole versions for core, FTL and web interface.
+    pub fn get_versions(&self) -> Result<Versions, errors::APIError> {
+        self.simple_json_request("/admin/api.php?versions")
     }
 
     /// Get statistics about the DNS cache.

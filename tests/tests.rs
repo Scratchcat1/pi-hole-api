@@ -210,9 +210,27 @@ fn disable_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
-fn version_test(ctx: &mut PiHoleTestContext) {
+fn get_version_test(ctx: &mut PiHoleTestContext) {
     let version = ctx.unauthenticated_api.get_version().unwrap();
-    assert!(version.version >= 3);
+    assert!(version >= 3);
+}
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn get_versions_test(ctx: &mut PiHoleTestContext) {
+    let versions = ctx.unauthenticated_api.get_versions().unwrap();
+    assert_ne!(
+        versions.core_current == versions.core_latest,
+        versions.core_update
+    );
+    assert_ne!(
+        versions.web_current == versions.web_latest,
+        versions.web_update
+    );
+    assert_ne!(
+        versions.ftl_current == versions.ftl_latest,
+        versions.ftl_update
+    );
 }
 
 #[test_context(PiHoleTestContext)]
