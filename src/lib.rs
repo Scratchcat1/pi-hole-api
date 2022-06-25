@@ -1,463 +1,291 @@
 use crate::fake_hash_map::FakeHashMap;
-use chrono::prelude::*;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::de::DeserializeOwned;
 use std::collections::HashMap;
-use std::net::IpAddr;
+pub mod api_types;
 mod custom_deserializers;
 pub mod errors;
 mod fake_hash_map;
+use crate::api_types::*;
 
-/// Summary Raw Struct
-#[derive(Deserialize, Debug)]
-pub struct SummaryRaw {
-    /// Number of domains being blocked
-    pub domains_being_blocked: u64,
-
-    /// Number of DNS queries today
-    pub dns_queries_today: u64,
-
-    /// Number of Ads blocked today
-    pub ads_blocked_today: u64,
-
-    /// Percentage of queries blocked today
-    pub ads_percentage_today: f64,
-
-    /// Number of unique domains
-    pub unique_domains: u64,
-
-    /// Number of queries forwarded
-    pub queries_forwarded: u64,
-
-    /// Number of queries cached
-    pub queries_cached: u64,
-
-    /// Number of clients ever seen
-    pub clients_ever_seen: u64,
-
-    /// Number of unique clients
-    pub unique_clients: u64,
-
-    /// Number of DNS queries of all types
-    pub dns_queries_all_types: u64,
-
-    /// Number of NODATA replies
-    #[serde(rename = "reply_NODATA")]
-    pub reply_nodata: u64,
-
-    /// Number of NXDOMAIN replies
-    #[serde(rename = "reply_NXDOMAIN")]
-    pub reply_nxdomain: u64,
-
-    /// Number of CNAME replies
-    #[serde(rename = "reply_CNAME")]
-    pub reply_cname: u64,
-
-    /// Number of IP replies
-    #[serde(rename = "reply_IP")]
-    pub reply_ip: u64,
-
-    /// Privacy level
-    pub privacy_level: u64,
-
-    /// Pi Hole status
-    pub status: String,
+trait PiHoleAPIHost {
+    fn get_host(&self) -> &str;
 }
 
-/// Summary Struct
-#[derive(Deserialize, Debug)]
-pub struct Summary {
-    /// Formatted number of domains being blocked
-    pub domains_being_blocked: String,
-
-    /// Formatted number of DNS queries today
-    pub dns_queries_today: String,
-
-    /// Formatted number of Ads blocked today
-    pub ads_blocked_today: String,
-
-    /// Formatted percentage of queries blocked today
-    pub ads_percentage_today: String,
-
-    /// Formatted number of unique domains
-    pub unique_domains: String,
-
-    /// Formatted number of queries forwarded
-    pub queries_forwarded: String,
-
-    /// Formatted number of queries cached
-    pub queries_cached: String,
-
-    /// Formatted number of clients ever seen
-    pub clients_ever_seen: String,
-
-    /// Formatted number of unique clients
-    pub unique_clients: String,
-
-    /// Formatted number of DNS queries of all types
-    pub dns_queries_all_types: String,
-
-    /// Formatted number of NODATA replies
-    #[serde(rename = "reply_NODATA")]
-    pub reply_nodata: String,
-
-    /// Formatted number of NXDOMAIN replies
-    #[serde(rename = "reply_NXDOMAIN")]
-    pub reply_nxdomain: String,
-
-    /// Formatted number of CNAME replies
-    #[serde(rename = "reply_CNAME")]
-    pub reply_cname: String,
-
-    /// Formatted number of IP replies
-    #[serde(rename = "reply_IP")]
-    pub reply_ip: String,
-
-    /// Privacy level
-    pub privacy_level: String,
-
-    /// Pi Hole status
-    pub status: String,
-}
-
-/// Over Time Data Struct
-#[derive(Deserialize, Debug)]
-pub struct OverTimeData {
-    /// Mapping from time to number of domains
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub domains_over_time: HashMap<String, u64>,
-
-    /// Mapping from time to number of ads
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub ads_over_time: HashMap<String, u64>,
-}
-
-/// Top Items Struct
-#[derive(Deserialize, Debug)]
-pub struct TopItems {
-    /// Top queries mapping from domain to number of requests
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub top_queries: HashMap<String, u64>,
-
-    /// Top ads mapping from domain to number of requests
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub top_ads: HashMap<String, u64>,
-}
-
-/// Top Clients Struct
-#[derive(Deserialize, Debug)]
-pub struct TopClients {
-    /// Top sources mapping from "IP" or "hostname|IP" to number of requests.
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub top_sources: HashMap<String, u64>,
-}
-
-/// Top Clients Blocked Struct
-#[derive(Deserialize, Debug)]
-pub struct TopClientsBlocked {
-    /// Top sources blocked mapping from "IP" or "hostname|IP" to number of blocked requests.
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub top_sources_blocked: HashMap<String, u64>,
-}
-
-/// Forward Destinations Struct
-#[derive(Deserialize, Debug)]
-pub struct ForwardDestinations {
-    /// Forward destinations mapping from "human_readable_name|IP" to the percentage of requests answered.
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub forward_destinations: HashMap<String, f64>,
-}
-
-/// Query Types Struct
-#[derive(Deserialize, Debug)]
-pub struct QueryTypes {
-    /// Query types mapping from query type (A, AAAA, PTR, etc.) to the percentage of queries which are of that type.
-    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
-    pub querytypes: HashMap<String, f64>,
-}
-
-/// Query Struct
-#[derive(Deserialize, Debug)]
-pub struct Query {
-    /// Timestamp of query
-    pub timestring: String,
-
-    /// Type of query (A, AAAA, PTR, etc.)
-    pub query_type: String,
-
-    /// Requested domain name
-    pub domain: String,
-
-    /// Requesting client IP or hostname
-    pub client: String,
-
-    /// Status as String
-    pub answer_type: String,
-}
-
-/// All Queries Struct
-#[derive(Deserialize, Debug)]
-pub struct AllQueries {
-    /// List of queries
-    pub data: Vec<Query>,
-}
-
-/// Status Struct
-#[derive(Deserialize, Debug)]
-pub struct Status {
-    /// Status, "enabled" or "disabled"
-    pub status: String,
-}
-
-/// Version Struct
-#[derive(Deserialize, Debug)]
-pub struct Version {
-    /// Version
-    pub version: u32,
-}
-
-/// Versions Struct
-#[derive(Deserialize, Debug)]
-pub struct Versions {
-    /// Is there an update available for Pi-hole core
-    pub core_update: bool,
-    /// Is there an update available for Pi-hole web
-    pub web_update: bool,
-    /// Is there an update available for Pi-hole FTL
-    #[serde(rename = "FTL_update")]
-    pub ftl_update: bool,
-    /// Current Pi-hole core version
-    pub core_current: String,
-    /// Current Pi-hole web version
-    pub web_current: String,
-    /// Current Pi-hole FTL version
-    #[serde(rename = "FTL_current")]
-    pub ftl_current: String,
-    /// Latest Pi-hole core version
-    pub core_latest: String,
-    /// Latest Pi-hole web version
-    pub web_latest: String,
-    /// Latest Pi-hole FTL version
-    #[serde(rename = "FTL_latest")]
-    pub ftl_latest: String,
-    /// Current Pi-hole core branch
-    pub core_branch: String,
-    /// Current Pi-hole web branch
-    pub web_branch: String,
-    /// Current Pi-hole FTL branch
-    #[serde(rename = "FTL_branch")]
-    pub ftl_branch: String,
-}
-
-/// Cache Info Struct
-#[derive(Deserialize, Debug)]
-pub struct CacheInfo {
-    /// Cache size
-    #[serde(rename = "cache-size")]
-    pub cache_size: u64,
-
-    /// Number of evicted cache entries
-    #[serde(rename = "cache-live-freed")]
-    pub cache_live_freed: u64,
-
-    /// Number of cache entries inserted
-    #[serde(rename = "cache-inserted")]
-    pub cache_inserted: u64,
-}
-
-/// Client Name Struct
-#[derive(Deserialize, Debug)]
-pub struct ClientName {
-    /// Client name
-    pub name: String,
-
-    /// Client IP
-    pub ip: IpAddr,
-}
-
-/// Network Client Struct
-#[derive(Deserialize, Debug)]
-pub struct NetworkClient {
-    /// Client ID
-    pub id: u64,
-
-    /// IP addresses of client
-    pub ip: Vec<IpAddr>,
-
-    /// Hardware address
-    pub hwaddr: String,
-
-    /// Interface
-    pub interface: String,
-
-    /// Hostname
-    pub name: Vec<String>,
-
-    /// Time first seen
-    #[serde(rename = "firstSeen")]
-    pub first_seen: u64,
-
-    /// Time of last query
-    #[serde(rename = "lastQuery")]
-    pub last_query: u64,
-
-    /// Number of queries
-    #[serde(rename = "numQueries")]
-    pub num_queries: u64,
-
-    /// MAC Vendor
-    #[serde(rename = "macVendor")]
-    pub mac_vendor: String,
-}
-
-/// Network Struct
-#[derive(Deserialize, Debug)]
-pub struct Network {
-    /// List of network clients
-    pub network: Vec<NetworkClient>,
-}
-
-/// List Modification Response Struct
-#[derive(Deserialize, Debug)]
-pub struct ListModificationResponse {
-    /// If request was successful
-    pub success: bool,
-    /// Optional message about request
-    pub message: Option<String>,
-}
-
-/// Custom List Domain Struct
-#[derive(Deserialize, Debug)]
-pub struct CustomListDomainDetails {
-    /// Entry ID
-    pub id: u64,
-    /// Type
-    #[serde(rename = "type")]
-    pub domain_type: u64,
-    /// Domain
-    pub domain: String,
-    /// Enabled
-    #[serde(deserialize_with = "custom_deserializers::deserialize_uint_to_bool")]
-    pub enabled: bool,
-    /// Date added
-    #[serde(with = "chrono::serde::ts_seconds")]
-    pub date_added: DateTime<Utc>,
-    /// Date modified
-    #[serde(with = "chrono::serde::ts_seconds")]
-    pub date_modified: DateTime<Utc>,
-    /// Comments
-    pub comment: String,
-    /// Groups
-    pub groups: Vec<u64>,
+trait PiHoleAPIKey {
+    fn get_api_key(&self) -> &str;
 }
 
 /// Pi Hole API Struct
-pub struct PiHoleAPI {
+pub struct PiHoleAPIConfig {
+    /// Pi Hole host
+    host: String,
+}
+
+impl PiHoleAPIConfig {
+    /// Creates a new Pi Hole API instance.
+    /// `host` must begin with the protocol e.g. http:// or https://
+    pub fn new(host: String) -> Self {
+        Self { host }
+    }
+}
+
+/// Pi Hole API Struct
+pub struct PiHoleAPIConfigWithKey {
     /// Pi Hole host
     host: String,
 
-    /// Optional API key
-    api_key: Option<String>,
+    /// API key
+    api_key: String,
 }
 
-impl PiHoleAPI {
+impl PiHoleAPIConfigWithKey {
     /// Creates a new Pi Hole API instance.
     /// `host` must begin with the protocol e.g. http:// or https://
-    pub fn new(host: String, api_key: Option<String>) -> Self {
+    pub fn new(host: String, api_key: String) -> Self {
         Self { host, api_key }
     }
+}
 
-    pub fn set_api_key(&mut self, api_key: String) {
-        self.api_key = Some(api_key);
+impl PiHoleAPIHost for PiHoleAPIConfig {
+    fn get_host(&self) -> &str {
+        &self.host
     }
+}
 
-    fn simple_json_request<T>(&self, path_query: &str) -> Result<T, errors::APIError>
-    where
-        T: DeserializeOwned,
-    {
-        let response = reqwest::blocking::get(&format!("{}{}", self.host, path_query))?;
-        Ok(response.json()?)
+impl PiHoleAPIHost for PiHoleAPIConfigWithKey {
+    fn get_host(&self) -> &str {
+        &self.host
     }
+}
 
-    fn authenticated_json_request<T>(&self, path_query: &str) -> Result<T, errors::APIError>
-    where
-        T: DeserializeOwned,
-    {
-        if self.api_key.is_none() {
-            return Err(errors::APIError::MissingAPIKey);
-        }
-
-        let joining_char = if path_query.contains('?') { '&' } else { '?' };
-        let auth_path_query = format!(
-            "{}{}{}auth={}",
-            self.host,
-            path_query,
-            joining_char,
-            self.api_key.as_ref().unwrap()
-        );
-        let response = reqwest::blocking::get(&auth_path_query)?;
-        println!("{:?}", reqwest::blocking::get(&auth_path_query)?.text()?);
-        Ok(response.json()?)
+impl PiHoleAPIKey for PiHoleAPIConfigWithKey {
+    fn get_api_key(&self) -> &str {
+        &self.api_key
     }
+}
 
+pub trait UnauthenticatedPiHoleAPI {
     /// Get statistics in a raw format (no number format)
-    pub fn get_summary_raw(&self) -> Result<SummaryRaw, errors::APIError> {
-        self.simple_json_request("/admin/api.php?summaryRaw")
-    }
+    fn get_summary_raw(&self) -> Result<SummaryRaw, errors::APIError>;
 
     /// Get statistics in a formatted style
-    pub fn get_summary(&self) -> Result<Summary, errors::APIError> {
-        self.simple_json_request("/admin/api.php?summary")
-    }
+    fn get_summary(&self) -> Result<Summary, errors::APIError>;
 
     /// Get statistics on the number of domains and ads for each 10 minute period
-    pub fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, errors::APIError> {
-        self.simple_json_request("/admin/api.php?overTimeData10mins")
+    fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, errors::APIError>;
+
+    /// Get the Pi-Hole version.
+    fn get_version(&self) -> Result<u32, errors::APIError>;
+
+    /// Get the detailed Pi-Hole versions for core, FTL and web interface.
+    fn get_versions(&self) -> Result<Versions, errors::APIError>;
+}
+
+fn simple_json_request<T>(host: &str, path_query: &str) -> Result<T, errors::APIError>
+where
+    T: DeserializeOwned,
+{
+    let response = reqwest::blocking::get(&format!("{}{}", host, path_query))?;
+    Ok(response.json()?)
+}
+
+impl<T> UnauthenticatedPiHoleAPI for T
+where
+    T: PiHoleAPIHost,
+{
+    fn get_summary_raw(&self) -> Result<SummaryRaw, errors::APIError> {
+        simple_json_request(&self.get_host(), "/admin/api.php?summaryRaw")
     }
 
-    /// Get the top domains and ads and the number of queries for each. Limit the number of items with `count`.
-    /// API key required.
-    pub fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, errors::APIError> {
-        self.authenticated_json_request(&format!("/admin/api.php?topItems={}", count.unwrap_or(10)))
+    fn get_summary(&self) -> Result<Summary, errors::APIError> {
+        simple_json_request(&self.get_host(), "/admin/api.php?summary")
     }
+
+    fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, errors::APIError> {
+        simple_json_request(&self.get_host(), "/admin/api.php?overTimeData10mins")
+    }
+
+    fn get_version(&self) -> Result<u32, errors::APIError> {
+        let raw_version: Version = simple_json_request(&self.get_host(), "/admin/api.php?version")?;
+        Ok(raw_version.version)
+    }
+
+    fn get_versions(&self) -> Result<Versions, errors::APIError> {
+        simple_json_request(&self.get_host(), "/admin/api.php?versions")
+    }
+}
+
+pub trait AuthenticatedPiHoleAPI {
+    /// Get the top domains and ads and the number of queries for each. Limit the number of items with `count`.
+    fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, errors::APIError>;
 
     /// Get the top clients and the number of queries for each. Limit the number of items with `count`.
-    /// API key required.
-    pub fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, errors::APIError> {
-        self.authenticated_json_request(&format!(
-            "/admin/api.php?topClients={}",
-            count.unwrap_or(10)
-        ))
-    }
+    fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, errors::APIError>;
 
     /// Get the top clients blocked and the number of queries for each. Limit the number of items with `count`.
-    /// API key required.
-    pub fn get_top_clients_blocked(
+    fn get_top_clients_blocked(
+        &self,
+        count: Option<u32>,
+    ) -> Result<TopClientsBlocked, errors::APIError>;
+
+    /// Get the number of queries forwarded and the target.
+    fn get_forward_destinations(&self) -> Result<ForwardDestinations, errors::APIError>;
+
+    /// Get the number of queries per type.
+    fn get_query_types(&self) -> Result<QueryTypes, errors::APIError>;
+
+    /// Get all DNS query data. Limit the number of items with `count`.
+    fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError>;
+
+    /// Enable the Pi-Hole.
+    fn enable(&self) -> Result<Status, errors::APIError>;
+
+    /// Disable the Pi-Hole for `seconds` seconds.
+    fn disable(&self, seconds: u64) -> Result<Status, errors::APIError>;
+
+    /// Get statistics about the DNS cache.
+    fn get_cache_info(&self) -> Result<CacheInfo, errors::APIError>;
+
+    /// Get hostname and IP for hosts
+    fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError>;
+
+    /// Get queries by client over time. Maps timestamp to the number of queries by clients.
+    /// Order of clients in the Vector is the same as for get_client_names
+    fn get_over_time_data_clients(&self) -> Result<HashMap<String, Vec<u64>>, errors::APIError>;
+
+    /// Get information about network clients.
+    fn get_network(&self) -> Result<Network, errors::APIError>;
+
+    /// Get the total number of queries received.
+    fn get_queries_count(&self) -> Result<u64, errors::APIError>;
+
+    /// Add domains to a custom white/blacklist.
+    /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
+    fn list_add(
+        &self,
+        domains: &[&str],
+        list: &str,
+    ) -> Result<ListModificationResponse, errors::APIError>;
+
+    /// Remove domains to a custom white/blacklist.
+    /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
+    fn list_remove(
+        &self,
+        domains: &[&str],
+        list: &str,
+    ) -> Result<ListModificationResponse, errors::APIError>;
+
+    /// Get a list of domains on a particular custom white/blacklist
+    /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
+    fn list_get_domains(
+        &self,
+        list: &str,
+    ) -> Result<Vec<CustomListDomainDetails>, errors::APIError>;
+
+    /// Get a list of custom DNS records
+    fn get_custom_dns_records(&self) -> Result<Vec<CustomDNSRecord>, errors::APIError>;
+}
+
+fn authenticated_json_request<T>(
+    host: &str,
+    path_query: &str,
+    api_key: &str,
+) -> Result<T, errors::APIError>
+where
+    T: DeserializeOwned,
+{
+    let joining_char = if path_query.contains('?') { '&' } else { '?' };
+    let auth_path_query = format!("{}{}{}auth={}", host, path_query, joining_char, api_key);
+    let response = reqwest::blocking::get(&auth_path_query)?;
+    println!("{:?}", reqwest::blocking::get(&auth_path_query)?.text()?);
+    Ok(response.json()?)
+}
+
+/// Perform a custom white/blacklist action ("add" or "sub")
+fn list_action<T>(
+    host: &str,
+    api_key: &str,
+    domains: &[&str],
+    list: &str,
+    action: &str,
+) -> Result<T, errors::APIError>
+where
+    T: DeserializeOwned,
+{
+    let url = format!(
+        "{}/admin/api.php?{}={}&list={}&auth={}",
+        host,
+        action,
+        domains.join(" "),
+        list,
+        api_key
+    );
+
+    let response_text = reqwest::blocking::get(&url)?.text()?;
+    println!("{}", response_text);
+    if response_text.starts_with("Invalid list") {
+        Err(errors::APIError::InvalidList)
+    } else {
+        match serde_json::from_str::<T>(&response_text) {
+            Ok(response) => Ok(response),
+            Err(error) => Err(error.into()),
+        }
+    }
+}
+
+impl<T> AuthenticatedPiHoleAPI for T
+where
+    T: PiHoleAPIHost + PiHoleAPIKey,
+{
+    fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            &format!("/admin/api.php?topItems={}", count.unwrap_or(10)),
+            self.get_api_key(),
+        )
+    }
+
+    fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            &format!("/admin/api.php?topClients={}", count.unwrap_or(10)),
+            self.get_api_key(),
+        )
+    }
+
+    fn get_top_clients_blocked(
         &self,
         count: Option<u32>,
     ) -> Result<TopClientsBlocked, errors::APIError> {
-        self.authenticated_json_request(&format!(
-            "/admin/api.php?topClientsBlocked={}",
-            count.unwrap_or(10)
-        ))
+        authenticated_json_request(
+            self.get_host(),
+            &format!("/admin/api.php?topClientsBlocked={}", count.unwrap_or(10)),
+            self.get_api_key(),
+        )
     }
 
-    /// Get the number of queries forwarded and the target.
-    /// API key required.
-    pub fn get_forward_destinations(&self) -> Result<ForwardDestinations, errors::APIError> {
-        self.authenticated_json_request("/admin/api.php?getForwardDestinations")
+    fn get_forward_destinations(&self) -> Result<ForwardDestinations, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?getForwardDestinations",
+            self.get_api_key(),
+        )
     }
 
-    /// Get the number of queries per type.
-    /// API key required.
-    pub fn get_query_types(&self) -> Result<QueryTypes, errors::APIError> {
-        self.authenticated_json_request("/admin/api.php?getQueryTypes")
+    fn get_query_types(&self) -> Result<QueryTypes, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?getQueryTypes",
+            self.get_api_key(),
+        )
     }
 
-    /// Get all DNS query data. Limit the number of items with `count`.
-    /// API key required.
-    pub fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError> {
-        let raw_data: HashMap<String, Vec<Vec<String>>> =
-            self.authenticated_json_request(&format!("/admin/api.php?getAllQueries={}", count))?;
+    fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError> {
+        let raw_data: HashMap<String, Vec<Vec<String>>> = authenticated_json_request(
+            self.get_host(),
+            &format!("/admin/api.php?getAllQueries={}", count),
+            self.get_api_key(),
+        )?;
 
         // Convert the queries from a list into a more useful Query struct
         let data = AllQueries {
@@ -477,55 +305,45 @@ impl PiHoleAPI {
         Ok(data)
     }
 
-    /// Enable the Pi-Hole.
-    /// API key required.
-    pub fn enable(&self) -> Result<Status, errors::APIError> {
-        self.authenticated_json_request("/admin/api.php?enable")
+    fn enable(&self) -> Result<Status, errors::APIError> {
+        authenticated_json_request(self.get_host(), "/admin/api.php?enable", self.get_api_key())
     }
 
-    /// Disable the Pi-Hole for `seconds` seconds.
-    /// API key required.
-    pub fn disable(&self, seconds: u64) -> Result<Status, errors::APIError> {
-        self.authenticated_json_request(&format!("/admin/api.php?disable={}", seconds))
+    fn disable(&self, seconds: u64) -> Result<Status, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            &format!("/admin/api.php?disable={}", seconds),
+            self.get_api_key(),
+        )
     }
 
-    /// Get the Pi-Hole version.
-    pub fn get_version(&self) -> Result<u32, errors::APIError> {
-        let raw_version: Version = self.simple_json_request("/admin/api.php?version")?;
-        Ok(raw_version.version)
-    }
-
-    /// Get the detailed Pi-Hole versions for core, FTL and web interface.
-    pub fn get_versions(&self) -> Result<Versions, errors::APIError> {
-        self.simple_json_request("/admin/api.php?versions")
-    }
-
-    /// Get statistics about the DNS cache.
-    /// API key required.
-    pub fn get_cache_info(&self) -> Result<CacheInfo, errors::APIError> {
-        let mut raw_data: HashMap<String, CacheInfo> =
-            self.authenticated_json_request("/admin/api.php?getCacheInfo")?;
+    fn get_cache_info(&self) -> Result<CacheInfo, errors::APIError> {
+        let mut raw_data: HashMap<String, CacheInfo> = authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?getCacheInfo",
+            self.get_api_key(),
+        )?;
         Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
     }
 
-    /// Get hostname and IP for hosts
-    /// API key required.
-    pub fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError> {
-        let mut raw_data: HashMap<String, Vec<ClientName>> =
-            self.authenticated_json_request("/admin/api.php?getClientNames")?;
+    fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError> {
+        let mut raw_data: HashMap<String, Vec<ClientName>> = authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?getClientNames",
+            self.get_api_key(),
+        )?;
         Ok(raw_data
             .remove("clients")
             .expect("Missing clients attribute"))
     }
 
-    /// Get queries by client over time. Maps timestamp to the number of queries by clients.
-    /// Order of clients in the Vector is the same as for get_client_names
-    /// API key required.
-    pub fn get_over_time_data_clients(
-        &self,
-    ) -> Result<HashMap<String, Vec<u64>>, errors::APIError> {
+    fn get_over_time_data_clients(&self) -> Result<HashMap<String, Vec<u64>>, errors::APIError> {
         let mut raw_data: HashMap<String, FakeHashMap<String, Vec<u64>>> =
-            self.authenticated_json_request("/admin/api.php?overTimeDataClients")?;
+            authenticated_json_request(
+                self.get_host(),
+                "/admin/api.php?overTimeDataClients",
+                self.get_api_key(),
+            )?;
 
         Ok(raw_data
             .remove("over_time")
@@ -533,80 +351,69 @@ impl PiHoleAPI {
             .into())
     }
 
-    /// Get information about network clients.
-    /// API key required.
-    pub fn get_network(&self) -> Result<Network, errors::APIError> {
-        self.authenticated_json_request("/admin/api_db.php?network")
+    fn get_network(&self) -> Result<Network, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            "/admin/api_db.php?network",
+            self.get_api_key(),
+        )
     }
 
-    /// Get the total number of queries received.
-    /// API key required.
-    pub fn get_queries_count(&self) -> Result<u64, errors::APIError> {
-        let raw_data: HashMap<String, u64> =
-            self.authenticated_json_request("/admin/api_db.php?getQueriesCount")?;
+    fn get_queries_count(&self) -> Result<u64, errors::APIError> {
+        let raw_data: HashMap<String, u64> = authenticated_json_request(
+            self.get_host(),
+            "/admin/api_db.php?getQueriesCount",
+            self.get_api_key(),
+        )?;
         Ok(*raw_data.get("count").expect("Missing count attribute"))
     }
 
-    /// Add domains to a custom white/blacklist.
-    /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
-    /// API key required.
-    pub fn list_add(
+    fn list_add(
         &self,
         domains: &[&str],
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
-        self.list_action(domains, list, "add")
+        list_action(self.get_host(), self.get_api_key(), domains, list, "add")
     }
 
-    /// Remove domains to a custom white/blacklist.
-    /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
-    /// API key required.
-    pub fn list_remove(
+    fn list_remove(
         &self,
         domains: &[&str],
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
-        self.list_action(domains, list, "sub")
+        list_action(self.get_host(), self.get_api_key(), domains, list, "sub")
     }
 
-    pub fn list_get_domains(
+    fn list_get_domains(
         &self,
         list: &str,
     ) -> Result<Vec<CustomListDomainDetails>, errors::APIError> {
         // if not "add" or "sub", api.php defaults to the "get_domains" action
-        let mut raw_data: HashMap<String, Vec<CustomListDomainDetails>> =
-            self.list_action(&[], list, "get_domains")?;
+        let mut raw_data: HashMap<String, Vec<CustomListDomainDetails>> = list_action(
+            self.get_host(),
+            self.get_api_key(),
+            &[],
+            list,
+            "get_domains",
+        )?;
         Ok(raw_data.remove("data").unwrap())
     }
 
-    /// Perform a custom white/blacklist action ("add" or "sub")
-    fn list_action<T>(
-        &self,
-        domains: &[&str],
-        list: &str,
-        action: &str,
-    ) -> Result<T, errors::APIError>
-    where
-        T: DeserializeOwned,
-    {
-        let url = format!(
-            "{}/admin/api.php?{}={}&list={}&auth={}",
-            self.host,
-            action,
-            domains.join(" "),
-            list,
-            self.api_key.as_ref().unwrap_or(&"".to_string())
-        );
+    fn get_custom_dns_records(&self) -> Result<Vec<CustomDNSRecord>, errors::APIError> {
+        let mut raw_data: HashMap<String, Vec<Vec<String>>> = authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?customdns&action=get",
+            self.get_api_key(),
+        )?;
 
-        let response_text = reqwest::blocking::get(&url)?.text()?;
-        println!("{}", response_text);
-        if response_text.starts_with("Invalid list") {
-            Err(errors::APIError::InvalidList)
-        } else {
-            match serde_json::from_str::<T>(&response_text) {
-                Ok(response) => Ok(response),
-                Err(error) => Err(error.into()),
-            }
-        }
+        Ok(raw_data
+            .remove("data")
+            .unwrap()
+            .into_iter()
+            .map(|list_record| CustomDNSRecord {
+                domain: list_record[0].clone(),
+                ip_address: list_record[1].parse().unwrap(),
+            })
+            .collect())
     }
 }

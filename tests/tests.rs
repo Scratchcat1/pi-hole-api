@@ -1,7 +1,9 @@
 use chrono::prelude::*;
 use pi_hole_api;
 use pi_hole_api::errors::APIError;
-use pi_hole_api::PiHoleAPI;
+use pi_hole_api::{
+    AuthenticatedPiHoleAPI, PiHoleAPIConfig, PiHoleAPIConfigWithKey, UnauthenticatedPiHoleAPI,
+};
 use std::env;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -22,25 +24,23 @@ fn test_target_dns_address() -> String {
         .expect("Missing environmental var PI_HOLE_API_TEST_TARGET_DNS_ADDRESS")
 }
 
-fn pi_hole_api_test_api_key() -> Option<String> {
-    Some(
-        env::var("PI_HOLE_API_TEST_API_KEY")
-            .expect("Missing environmental var PI_HOLE_API_TEST_API_KEY"),
-    )
+fn pi_hole_api_test_api_key() -> String {
+    env::var("PI_HOLE_API_TEST_API_KEY")
+        .expect("Missing environmental var PI_HOLE_API_TEST_API_KEY")
 }
 
 struct PiHoleTestContext {
     resolver: Resolver,
-    authenticated_api: PiHoleAPI,
-    unauthenticated_api: PiHoleAPI,
+    authenticated_api: PiHoleAPIConfigWithKey,
+    unauthenticated_api: PiHoleAPIConfig,
 }
 
 impl PiHoleTestContext {
     pub fn new() -> Self {
         Self {
             resolver: Self::create_resolver(),
-            unauthenticated_api: PiHoleAPI::new(test_target_http_address(), None),
-            authenticated_api: PiHoleAPI::new(
+            unauthenticated_api: PiHoleAPIConfig::new(test_target_http_address()),
+            authenticated_api: PiHoleAPIConfigWithKey::new(
                 test_target_http_address(),
                 pi_hole_api_test_api_key(),
             ),
@@ -343,4 +343,10 @@ fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
 
     let response = ctx.authenticated_api.list_get_domains("NOT_A_LIST");
     assert!(matches!(response.err().unwrap(), APIError::InvalidList));
+}
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn get_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
+    ctx.authenticated_api.get_custom_dns_records().unwrap();
 }
