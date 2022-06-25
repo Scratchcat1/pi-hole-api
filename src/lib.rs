@@ -1,7 +1,9 @@
 use crate::fake_hash_map::FakeHashMap;
+use chrono::prelude::*;
 use serde::{de::DeserializeOwned, Deserialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
+mod custom_deserializers;
 pub mod errors;
 mod fake_hash_map;
 
@@ -323,6 +325,31 @@ pub struct ListModificationResponse {
     pub message: Option<String>,
 }
 
+/// Custom List Domain Struct
+#[derive(Deserialize, Debug)]
+pub struct CustomListDomainDetails {
+    /// Entry ID
+    pub id: u64,
+    /// Type
+    #[serde(rename = "type")]
+    pub domain_type: u64,
+    /// Domain
+    pub domain: String,
+    /// Enabled
+    #[serde(deserialize_with = "custom_deserializers::deserialize_uint_to_bool")]
+    pub enabled: bool,
+    /// Date added
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub date_added: DateTime<Utc>,
+    /// Date modified
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub date_modified: DateTime<Utc>,
+    /// Comments
+    pub comment: String,
+    /// Groups
+    pub groups: Vec<u64>,
+}
+
 /// Pi Hole API Struct
 pub struct PiHoleAPI {
     /// Pi Hole host
@@ -523,32 +550,45 @@ impl PiHoleAPI {
     /// Add domains to a custom white/blacklist.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     /// API key required.
-    pub fn add(
+    pub fn list_add(
         &self,
         domains: &[&str],
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
-        self.modify_list(domains, list, "add")
+        self.list_action(domains, list, "add")
     }
 
     /// Remove domains to a custom white/blacklist.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     /// API key required.
-    pub fn remove(
+    pub fn list_remove(
         &self,
         domains: &[&str],
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
-        self.modify_list(domains, list, "sub")
+        self.list_action(domains, list, "sub")
+    }
+
+    pub fn list_get_domains(
+        &self,
+        list: &str,
+    ) -> Result<Vec<CustomListDomainDetails>, errors::APIError> {
+        // if not "add" or "sub", api.php defaults to the "get_domains" action
+        let mut raw_data: HashMap<String, Vec<CustomListDomainDetails>> =
+            self.list_action(&[], list, "get_domains")?;
+        Ok(raw_data.remove("data").unwrap())
     }
 
     /// Perform a custom white/blacklist action ("add" or "sub")
-    fn modify_list(
+    fn list_action<T>(
         &self,
         domains: &[&str],
         list: &str,
         action: &str,
-    ) -> Result<ListModificationResponse, errors::APIError> {
+    ) -> Result<T, errors::APIError>
+    where
+        T: DeserializeOwned,
+    {
         let url = format!(
             "{}/admin/api.php?{}={}&list={}&auth={}",
             self.host,
@@ -559,10 +599,11 @@ impl PiHoleAPI {
         );
 
         let response_text = reqwest::blocking::get(&url)?.text()?;
+        println!("{}", response_text);
         if response_text.starts_with("Invalid list") {
             Err(errors::APIError::InvalidList)
         } else {
-            match serde_json::from_str::<ListModificationResponse>(&response_text) {
+            match serde_json::from_str::<T>(&response_text) {
                 Ok(response) => Ok(response),
                 Err(error) => Err(error.into()),
             }

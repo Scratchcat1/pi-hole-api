@@ -1,3 +1,4 @@
+use chrono::prelude::*;
 use pi_hole_api;
 use pi_hole_api::errors::APIError;
 use pi_hole_api::PiHoleAPI;
@@ -275,11 +276,13 @@ fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
 fn add_test(ctx: &mut PiHoleTestContext) {
     let response = ctx
         .authenticated_api
-        .add(&["testdomain.foo"], "white")
+        .list_add(&["testdomain.foo"], "white")
         .unwrap();
     assert!(response.success);
 
-    let response = ctx.authenticated_api.add(&["testdomain.foo"], "NOT_A_LIST");
+    let response = ctx
+        .authenticated_api
+        .list_add(&["testdomain.foo"], "NOT_A_LIST");
     assert!(matches!(response.err().unwrap(), APIError::InvalidList));
 }
 
@@ -288,12 +291,56 @@ fn add_test(ctx: &mut PiHoleTestContext) {
 fn remove_test(ctx: &mut PiHoleTestContext) {
     let response = ctx
         .authenticated_api
-        .remove(&["x.testdomain.foo"], "white")
+        .list_remove(&["x.testdomain.foo"], "white")
         .unwrap();
     assert!(response.success);
 
     let response = ctx
         .authenticated_api
-        .remove(&["x.testdomain.foo"], "NOT_A_LIST");
+        .list_remove(&["x.testdomain.foo"], "NOT_A_LIST");
+    assert!(matches!(response.err().unwrap(), APIError::InvalidList));
+}
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
+    ctx.authenticated_api
+        .list_add(&["testdomain.foo"], "white")
+        .unwrap();
+
+    let domains = ctx.authenticated_api.list_get_domains("white").unwrap();
+    assert!(domains.len() > 0);
+    assert!(domains
+        .iter()
+        .any(|domain_details| domain_details.domain == "testdomain.foo"));
+
+    // Date before/after which all domains should have been added before
+    // This stops an incorrect conversion e.g. parsing milliseconds as seconds
+    // and ending up with a date in the 1970s.
+    let lower_cutoff_date = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+    let upper_cutoff_date = Utc.ymd(2030, 1, 1).and_hms(0, 0, 0);
+    assert!(domains.iter().all(
+        |domain_details| domain_details.date_added > lower_cutoff_date
+            && domain_details.date_added < upper_cutoff_date
+    ));
+    assert!(domains.iter().all(
+        |domain_details| domain_details.date_modified > lower_cutoff_date
+            && domain_details.date_modified < upper_cutoff_date
+    ));
+
+    ctx.authenticated_api
+        .list_remove(&["testdomain.foo"], "white")
+        .unwrap();
+
+    let domains = ctx.authenticated_api.list_get_domains("white").unwrap();
+    assert_eq!(
+        domains
+            .iter()
+            .filter(|domain_details| domain_details.domain == "testdomain.foo")
+            .count(),
+        0
+    );
+
+    let response = ctx.authenticated_api.list_get_domains("NOT_A_LIST");
     assert!(matches!(response.err().unwrap(), APIError::InvalidList));
 }
