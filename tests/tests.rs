@@ -8,6 +8,7 @@ use std::env;
 use std::net::SocketAddr;
 use std::str::FromStr;
 // use std::{thread, time};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use test_context::{test_context, TestContext};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::Resolver;
@@ -349,4 +350,60 @@ fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
 #[test]
 fn get_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
     ctx.authenticated_api.get_custom_dns_records().unwrap();
+}
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn add_and_delete_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
+    let ipv4_test_address = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+    let ipv4_test_domain = "4.example.com";
+    let ipv6_test_address = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+    let ipv6_test_domain = "6.example.com";
+
+    ctx.authenticated_api
+        .delete_custom_dns_record(ipv4_test_address, ipv4_test_domain)
+        .unwrap();
+    ctx.authenticated_api
+        .delete_custom_dns_record(ipv6_test_address, ipv6_test_domain)
+        .unwrap();
+
+    let custom_dns_records = ctx.authenticated_api.get_custom_dns_records().unwrap();
+    assert!(!custom_dns_records
+        .iter()
+        .any(
+            |custom_dns_record| (custom_dns_record.ip_address == ipv4_test_address
+                && custom_dns_record.domain == ipv4_test_domain)
+                || (custom_dns_record.ip_address == ipv6_test_address
+                    && custom_dns_record.domain == ipv6_test_domain)
+        ));
+
+    ctx.authenticated_api
+        .add_custom_dns_record(ipv4_test_address, ipv4_test_domain)
+        .unwrap();
+    ctx.authenticated_api
+        .add_custom_dns_record(ipv6_test_address, ipv6_test_domain)
+        .unwrap();
+
+    let custom_dns_records = ctx.authenticated_api.get_custom_dns_records().unwrap();
+    assert_eq!(
+        custom_dns_records
+            .iter()
+            .filter(
+                |custom_dns_record| custom_dns_record.ip_address == ipv4_test_address
+                    && custom_dns_record.domain == ipv4_test_domain
+            )
+            .count(),
+        1
+    );
+
+    assert_eq!(
+        custom_dns_records
+            .iter()
+            .filter(
+                |custom_dns_record| custom_dns_record.ip_address == ipv6_test_address
+                    && custom_dns_record.domain == ipv6_test_domain
+            )
+            .count(),
+        1
+    );
 }

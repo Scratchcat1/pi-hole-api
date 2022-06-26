@@ -1,6 +1,7 @@
 use crate::fake_hash_map::FakeHashMap;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
+use std::net::IpAddr;
 pub mod api_types;
 mod custom_deserializers;
 pub mod errors;
@@ -184,6 +185,20 @@ pub trait AuthenticatedPiHoleAPI {
 
     /// Get a list of custom DNS records
     fn get_custom_dns_records(&self) -> Result<Vec<CustomDNSRecord>, errors::APIError>;
+
+    /// Add a custom DNS record
+    fn add_custom_dns_record(
+        &self,
+        ip: IpAddr,
+        domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError>;
+
+    /// Delete a custom DNS record
+    fn delete_custom_dns_record(
+        &self,
+        ip: IpAddr,
+        domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError>;
 }
 
 fn authenticated_json_request<T>(
@@ -415,5 +430,35 @@ where
                 ip_address: list_record[1].parse().unwrap(),
             })
             .collect())
+    }
+
+    fn add_custom_dns_record(
+        &self,
+        ip: IpAddr,
+        domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            &format!(
+                "/admin/api.php?customdns&action=add&ip={}&domain={}",
+                ip, domain
+            ),
+            self.get_api_key(),
+        )
+    }
+
+    fn delete_custom_dns_record(
+        &self,
+        ip: IpAddr,
+        domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            &format!(
+                "/admin/api.php?customdns&action=delete&ip={}&domain={}",
+                ip, domain
+            ),
+            self.get_api_key(),
+        )
     }
 }
