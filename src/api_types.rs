@@ -356,3 +356,12 @@ pub struct CustomDNSRecord {
     /// IP Address
     pub ip_address: IpAddr,
 }
+
+/// Local/Custom List CNAME Struct
+#[derive(Deserialize, Debug)]
+pub struct CustomCNAMERecord {
+    /// Domain of record
+    pub domain: String,
+    /// Target domain
+    pub target_domain: String,
+}

@@ -407,3 +407,40 @@ fn add_and_delete_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
         1
     );
 }
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn get_custom_cname_records_test(ctx: &mut PiHoleTestContext) {
+    ctx.authenticated_api.get_custom_cname_records().unwrap();
+}
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn add_and_delete_custom_cname_records_test(ctx: &mut PiHoleTestContext) {
+    let domain = "abc.example.com";
+    let target_domain = "abc.example.net";
+
+    ctx.authenticated_api
+        .delete_custom_cname_record(domain, target_domain)
+        .unwrap();
+
+    let custom_cname_records = ctx.authenticated_api.get_custom_cname_records().unwrap();
+    assert!(!custom_cname_records
+        .iter()
+        .any(|custom_cname_record| custom_cname_record.domain == domain
+            && custom_cname_record.target_domain == target_domain));
+
+    ctx.authenticated_api
+        .add_custom_cname_record(domain, target_domain)
+        .unwrap();
+
+    let custom_cname_records = ctx.authenticated_api.get_custom_cname_records().unwrap();
+    assert_eq!(
+        custom_cname_records
+            .iter()
+            .filter(|custom_cname_record| custom_cname_record.domain == domain
+                && custom_cname_record.target_domain == target_domain)
+            .count(),
+        1
+    );
+}

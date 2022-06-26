@@ -199,6 +199,23 @@ pub trait AuthenticatedPiHoleAPI {
         ip: IpAddr,
         domain: &str,
     ) -> Result<ListModificationResponse, errors::APIError>;
+
+    /// Get a list of custom CNAME records
+    fn get_custom_cname_records(&self) -> Result<Vec<CustomCNAMERecord>, errors::APIError>;
+
+    /// Add a custom CNAME record
+    fn add_custom_cname_record(
+        &self,
+        domain: &str,
+        target_domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError>;
+
+    /// Delete a custom CNAME record
+    fn delete_custom_cname_record(
+        &self,
+        domain: &str,
+        target_domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError>;
 }
 
 fn authenticated_json_request<T>(
@@ -457,6 +474,54 @@ where
             &format!(
                 "/admin/api.php?customdns&action=delete&ip={}&domain={}",
                 ip, domain
+            ),
+            self.get_api_key(),
+        )
+    }
+
+    fn get_custom_cname_records(&self) -> Result<Vec<CustomCNAMERecord>, errors::APIError> {
+        let mut raw_data: HashMap<String, Vec<Vec<String>>> = authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?customcname&action=get",
+            self.get_api_key(),
+        )?;
+
+        Ok(raw_data
+            .remove("data")
+            .unwrap()
+            .into_iter()
+            .map(|list_record| CustomCNAMERecord {
+                domain: list_record[0].clone(),
+                target_domain: list_record[1].clone(),
+            })
+            .collect())
+    }
+
+    fn add_custom_cname_record(
+        &self,
+        domain: &str,
+        target_domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            &format!(
+                "/admin/api.php?customcname&action=add&domain={}&target={}",
+                domain, target_domain
+            ),
+            self.get_api_key(),
+        )
+    }
+
+    fn delete_custom_cname_record(
+        &self,
+        domain: &str,
+        target_domain: &str,
+    ) -> Result<ListModificationResponse, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            &format!(
+                "/admin/api.php?customcname&action=delete&domain={}&target={}",
+                domain, target_domain
             ),
             self.get_api_key(),
         )
