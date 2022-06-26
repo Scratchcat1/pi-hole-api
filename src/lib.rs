@@ -2,11 +2,14 @@ use crate::fake_hash_map::FakeHashMap;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::time::Duration;
 pub mod api_types;
 mod custom_deserializers;
 pub mod errors;
 mod fake_hash_map;
+pub mod ftl_types;
 use crate::api_types::*;
+use chrono::prelude::*;
 
 trait PiHoleAPIHost {
     fn get_host(&self) -> &str;
@@ -130,13 +133,16 @@ pub trait AuthenticatedPiHoleAPI {
     ) -> Result<TopClientsBlocked, errors::APIError>;
 
     /// Get the number of queries forwarded and the target.
-    fn get_forward_destinations(&self) -> Result<ForwardDestinations, errors::APIError>;
+    fn get_forward_destinations(
+        &self,
+        unsorted: bool,
+    ) -> Result<ForwardDestinations, errors::APIError>;
 
     /// Get the number of queries per type.
     fn get_query_types(&self) -> Result<QueryTypes, errors::APIError>;
 
     /// Get all DNS query data. Limit the number of items with `count`.
-    fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError>;
+    fn get_all_queries(&self, count: u32) -> Result<Vec<Query>, errors::APIError>;
 
     /// Enable the Pi-Hole.
     fn enable(&self) -> Result<Status, errors::APIError>;
@@ -216,6 +222,9 @@ pub trait AuthenticatedPiHoleAPI {
         domain: &str,
         target_domain: &str,
     ) -> Result<ListModificationResponse, errors::APIError>;
+
+    /// Get max logage
+    fn get_max_logage(&self) -> Result<f32, errors::APIError>;
 }
 
 fn authenticated_json_request<T>(
@@ -296,10 +305,14 @@ where
         )
     }
 
-    fn get_forward_destinations(&self) -> Result<ForwardDestinations, errors::APIError> {
+    fn get_forward_destinations(
+        &self,
+        unsorted: bool,
+    ) -> Result<ForwardDestinations, errors::APIError> {
+        let param_value = if unsorted { "=unsorted" } else { "" };
         authenticated_json_request(
             self.get_host(),
-            "/admin/api.php?getForwardDestinations",
+            &format!("/admin/api.php?getForwardDestinations{}", param_value),
             self.get_api_key(),
         )
     }
@@ -312,29 +325,42 @@ where
         )
     }
 
-    fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError> {
-        let raw_data: HashMap<String, Vec<Vec<String>>> = authenticated_json_request(
+    fn get_all_queries(&self, count: u32) -> Result<Vec<Query>, errors::APIError> {
+        let mut raw_data: HashMap<String, Vec<Query>> = authenticated_json_request(
             self.get_host(),
             &format!("/admin/api.php?getAllQueries={}", count),
             self.get_api_key(),
         )?;
 
-        // Convert the queries from a list into a more useful Query struct
-        let data = AllQueries {
-            data: raw_data
-                .get("data")
-                .unwrap()
-                .iter()
-                .map(|raw_query| Query {
-                    timestring: raw_query[0].clone(),
-                    query_type: raw_query[1].clone(),
-                    domain: raw_query[2].clone(),
-                    client: raw_query[3].clone(),
-                    answer_type: raw_query[4].clone(),
-                })
-                .collect(),
-        };
-        Ok(data)
+        // // Convert the queries from a list into a more useful Query struct
+        // let data = AllQueries {
+        //     data: raw_data
+        //         .get("data")
+        //         .unwrap()
+        //         .iter()
+        //         .map(|raw_query| Query {
+        //             timestring: NaiveDateTime::from_timestamp(
+        //                 raw_query[0].parse::<i64>().unwrap(),
+        //                 0,
+        //             ),
+        //             query_type: raw_query[1].clone(),
+        //             domain: raw_query[2].clone(),
+        //             client: raw_query[3].clone(),
+        //             status: raw_query[4].clone(),
+        //             dnssec_status: raw_query[5].clone(),
+        //             reply: raw_query[6].clone(),
+        //             // Response time is provided in units of 0.1ms
+        //             response_time: Duration::from_micros(
+        //                 raw_query[7].parse::<u64>().unwrap() * 100,
+        //             ),
+        //             cname_domain: raw_query[8].clone(),
+        //             regex_id: raw_query[9].clone(),
+        //             upstream_destination: raw_query[10].clone(),
+        //             ede: raw_query[11].clone(),
+        //         })
+        //         .collect(),
+        // };
+        Ok(raw_data.remove("data").unwrap())
     }
 
     fn enable(&self) -> Result<Status, errors::APIError> {
@@ -525,5 +551,14 @@ where
             ),
             self.get_api_key(),
         )
+    }
+
+    fn get_max_logage(&self) -> Result<f32, errors::APIError> {
+        let mut raw_data: HashMap<String, f32> = authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?getMaxlogage",
+            self.get_api_key(),
+        )?;
+        Ok(raw_data.remove("maxlogage").unwrap())
     }
 }

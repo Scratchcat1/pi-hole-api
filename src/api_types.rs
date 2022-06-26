@@ -1,9 +1,12 @@
 use crate::custom_deserializers;
 use crate::fake_hash_map;
+use crate::ftl_types::*;
 use chrono::prelude::*;
 use serde::Deserialize;
+use serde_tuple::*;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::time::Duration;
 
 /// Summary Raw Struct
 #[derive(Deserialize, Debug)]
@@ -174,10 +177,11 @@ pub struct QueryTypes {
 }
 
 /// Query Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize_tuple, Debug)]
 pub struct Query {
     /// Timestamp of query
-    pub timestring: String,
+    #[serde(deserialize_with = "custom_deserializers::deserialize_string_to_naive_datetime")]
+    pub timestring: NaiveDateTime,
 
     /// Type of query (A, AAAA, PTR, etc.)
     pub query_type: String,
@@ -189,7 +193,33 @@ pub struct Query {
     pub client: String,
 
     /// Status as String
-    pub answer_type: String,
+    #[serde(deserialize_with = "custom_deserializers::deserialize_string_to_query_status")]
+    pub status: QueryStatus,
+
+    /// DNSSEC Status
+    #[serde(deserialize_with = "custom_deserializers::deserialize_string_to_dnssec_status")]
+    pub dnssec_status: DNSSECStatus,
+
+    /// Reply
+    pub reply: String,
+
+    /// Response time
+    #[serde(
+        deserialize_with = "custom_deserializers::deserialize_string_to_duration_100_microseconds"
+    )]
+    pub response_time: Duration,
+
+    /// CNAME domain
+    pub cname_domain: String,
+
+    /// Regex ID
+    pub regex_id: String,
+
+    /// Upstream Destination
+    pub upstream_destination: String,
+
+    /// EDE
+    pub ede: String,
 }
 
 /// All Queries Struct
@@ -337,11 +367,11 @@ pub struct CustomListDomainDetails {
     #[serde(deserialize_with = "custom_deserializers::deserialize_uint_to_bool")]
     pub enabled: bool,
     /// Date added
-    #[serde(with = "chrono::serde::ts_seconds")]
-    pub date_added: DateTime<Utc>,
+    #[serde(with = "chrono::naive::serde::ts_seconds")]
+    pub date_added: NaiveDateTime,
     /// Date modified
-    #[serde(with = "chrono::serde::ts_seconds")]
-    pub date_modified: DateTime<Utc>,
+    #[serde(with = "chrono::naive::serde::ts_seconds")]
+    pub date_modified: NaiveDateTime,
     /// Comments
     pub comment: String,
     /// Groups

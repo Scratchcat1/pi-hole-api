@@ -168,7 +168,10 @@ fn get_top_clients_blocked_test(ctx: &mut PiHoleTestContext) {
 #[test_context(PiHoleTestContext)]
 #[test]
 fn get_forward_destinations_test(ctx: &mut PiHoleTestContext) {
-    let forward_destination = ctx.authenticated_api.get_forward_destinations().unwrap();
+    let forward_destination = ctx
+        .authenticated_api
+        .get_forward_destinations(false)
+        .unwrap();
     assert!(forward_destination.forward_destinations.len() >= 1);
 }
 
@@ -186,11 +189,8 @@ fn get_query_types_test(ctx: &mut PiHoleTestContext) {
 fn get_all_queries_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
     let queries = ctx.authenticated_api.get_all_queries(100).unwrap();
-    assert!(queries.data.len() >= 1);
-    assert!(queries
-        .data
-        .iter()
-        .any(|query| query.domain == "google.com"));
+    assert!(queries.len() >= 1);
+    assert!(queries.iter().any(|query| query.domain == "google.com"));
 }
 
 #[test_context(PiHoleTestContext)]
@@ -318,8 +318,8 @@ fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
     // Date before/after which all domains should have been added before
     // This stops an incorrect conversion e.g. parsing milliseconds as seconds
     // and ending up with a date in the 1970s.
-    let lower_cutoff_date = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
-    let upper_cutoff_date = Utc.ymd(2030, 1, 1).and_hms(0, 0, 0);
+    let lower_cutoff_date = NaiveDate::from_ymd(2020, 1, 1).and_hms(0, 0, 0);
+    let upper_cutoff_date = NaiveDate::from_ymd(2030, 1, 1).and_hms(0, 0, 0);
     assert!(domains.iter().all(
         |domain_details| domain_details.date_added > lower_cutoff_date
             && domain_details.date_added < upper_cutoff_date
@@ -443,4 +443,11 @@ fn add_and_delete_custom_cname_records_test(ctx: &mut PiHoleTestContext) {
             .count(),
         1
     );
+}
+
+#[test_context(PiHoleTestContext)]
+#[test]
+fn get_max_logage_test(ctx: &mut PiHoleTestContext) {
+    let max_logage = ctx.authenticated_api.get_max_logage().unwrap();
+    assert!(max_logage >= 0.0);
 }

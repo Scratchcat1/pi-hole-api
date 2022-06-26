@@ -4,6 +4,7 @@ pub enum APIError {
     SerdeJSONError(serde_json::Error),
     MissingAPIKey,
     InvalidList,
+    FTLNotRunning,
 }
 
 impl From<reqwest::Error> for APIError {
