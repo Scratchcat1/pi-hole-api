@@ -1,4 +1,5 @@
 use num_derive::FromPrimitive;
+use serde::Deserialize;
 use serde_repr::*;
 use strum::{EnumCount, EnumIter};
 
@@ -39,4 +40,47 @@ pub enum QueryStatus {
     QueryInProgress,
     QueryDbbusy,
     QueryStatusMax,
+}
+
+#[derive(
+    Serialize_repr, Deserialize_repr, Eq, PartialEq, Debug, EnumCount, EnumIter, FromPrimitive,
+)]
+#[repr(u8)]
+pub enum ReplyType {
+    ReplyUNKNOWN,
+    ReplyNODATA,
+    ReplyNXDOMAIN,
+    ReplyCNAME,
+    ReplyIP,
+    ReplyDOMAIN,
+    ReplyRRNAME,
+    ReplySERVFAIL,
+    ReplyREFUSED,
+    ReplyNOTIMP,
+    ReplyOTHER,
+    ReplyDNSSEC,
+    ReplyNONE,
+    ReplyBLOB,
+    QueryReplyMax,
+}
+
+#[derive(Deserialize, Eq, PartialEq, Debug, EnumCount, EnumIter, FromPrimitive)]
+pub enum QueryType {
+    A,
+    AAAA,
+    ANY,
+    SRV,
+    SOA,
+    PTR,
+    TXT,
+    NAPTR,
+    MX,
+    DS,
+    RRSIG,
+    DNSKEY,
+    NS,
+    OTHER,
+    SVCB,
+    HTTPS,
+    MAX,
 }

@@ -331,35 +331,6 @@ where
             &format!("/admin/api.php?getAllQueries={}", count),
             self.get_api_key(),
         )?;
-
-        // // Convert the queries from a list into a more useful Query struct
-        // let data = AllQueries {
-        //     data: raw_data
-        //         .get("data")
-        //         .unwrap()
-        //         .iter()
-        //         .map(|raw_query| Query {
-        //             timestring: NaiveDateTime::from_timestamp(
-        //                 raw_query[0].parse::<i64>().unwrap(),
-        //                 0,
-        //             ),
-        //             query_type: raw_query[1].clone(),
-        //             domain: raw_query[2].clone(),
-        //             client: raw_query[3].clone(),
-        //             status: raw_query[4].clone(),
-        //             dnssec_status: raw_query[5].clone(),
-        //             reply: raw_query[6].clone(),
-        //             // Response time is provided in units of 0.1ms
-        //             response_time: Duration::from_micros(
-        //                 raw_query[7].parse::<u64>().unwrap() * 100,
-        //             ),
-        //             cname_domain: raw_query[8].clone(),
-        //             regex_id: raw_query[9].clone(),
-        //             upstream_destination: raw_query[10].clone(),
-        //             ede: raw_query[11].clone(),
-        //         })
-        //         .collect(),
-        // };
         Ok(raw_data.remove("data").unwrap())
     }
 

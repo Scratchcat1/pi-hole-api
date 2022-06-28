@@ -46,3 +46,26 @@ fn deserialise_query_status_test() {
 fn panic_deserialise_invalid_query_status_value_test() {
     serde_json::from_str::<QueryStatus>(&(QueryStatus::COUNT + 1).to_string()).unwrap();
 }
+
+#[test]
+fn serialise_reply_type_test() {
+    for (i, status) in ReplyType::iter().enumerate() {
+        assert_eq!(serde_json::to_string(&status).unwrap(), i.to_string());
+    }
+}
+
+#[test]
+fn deserialise_reply_type_test() {
+    for (i, status) in ReplyType::iter().enumerate() {
+        assert_eq!(
+            serde_json::from_str::<ReplyType>(&i.to_string()).unwrap(),
+            status
+        );
+    }
+}
+
+#[test]
+#[should_panic]
+fn panic_deserialise_invalid_reply_type_value_test() {
+    serde_json::from_str::<ReplyType>(&(ReplyType::COUNT + 1).to_string()).unwrap();
+}

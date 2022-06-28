@@ -184,7 +184,7 @@ pub struct Query {
     pub timestring: NaiveDateTime,
 
     /// Type of query (A, AAAA, PTR, etc.)
-    pub query_type: String,
+    pub query_type: QueryType,
 
     /// Requested domain name
     pub domain: String,
@@ -200,8 +200,9 @@ pub struct Query {
     #[serde(deserialize_with = "custom_deserializers::deserialize_string_to_dnssec_status")]
     pub dnssec_status: DNSSECStatus,
 
-    /// Reply
-    pub reply: String,
+    /// Reply Type
+    #[serde(deserialize_with = "custom_deserializers::deserialize_string_to_reply_type")]
+    pub reply_type: ReplyType,
 
     /// Response time
     #[serde(
@@ -213,7 +214,8 @@ pub struct Query {
     pub cname_domain: String,
 
     /// Regex ID
-    pub regex_id: String,
+    #[serde(deserialize_with = "custom_deserializers::deserialize_string_to_i32")]
+    pub regex_id: i32,
 
     /// Upstream Destination
     pub upstream_destination: String,
