@@ -1,2 +1,3 @@
-export PI_HOLE_API_TEST_TARGET="http://192.168.1.2"  # Address of your Pi Hole
-export PI_HOLE_API_TEST_API_KEY="0123456789abcedf0123456789abcedf0123456789abcedf0123456789abcedf"  # Pi Hole API key
+export PI_HOLE_API_TEST_API_KEY="0123456789abcedf0123456789abcedf0123456789abcedf0123456789abcedf" # Pi Hole API key
+export PI_HOLE_API_TEST_TARGET_HTTP_ADDRESS="http://localhost" # Address of the Pi Hole HTTP server
+export PI_HOLE_API_TEST_TARGET_DNS_ADDRESS="127.0.0.1:53" # Address of the Pi Hole DNS server

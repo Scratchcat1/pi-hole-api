@@ -4,11 +4,11 @@ use pi_hole_api::errors::APIError;
 use pi_hole_api::{
     AuthenticatedPiHoleAPI, PiHoleAPIConfig, PiHoleAPIConfigWithKey, UnauthenticatedPiHoleAPI,
 };
+use serial_test::serial;
 use std::env;
 use std::net::SocketAddr;
-use std::str::FromStr;
-// use std::{thread, time};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::str::FromStr;
 use test_context::{test_context, TestContext};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::Resolver;
@@ -78,6 +78,7 @@ impl TestContext for PiHoleTestContext {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_summary_raw_test(ctx: &mut PiHoleTestContext) {
     let summary_raw = ctx.unauthenticated_api.get_summary_raw().unwrap();
     assert!(
@@ -88,6 +89,7 @@ fn get_summary_raw_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_summary_test(ctx: &mut PiHoleTestContext) {
     let summary = ctx.unauthenticated_api.get_summary().unwrap();
     assert!(
@@ -98,6 +100,7 @@ fn get_summary_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_over_time_data_10_mins_test(ctx: &mut PiHoleTestContext) {
     // Takes a while to update so performing a request will not immediately increase the counter
     ctx.unauthenticated_api
@@ -107,6 +110,7 @@ fn get_over_time_data_10_mins_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_top_items_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
 
@@ -132,6 +136,7 @@ fn get_top_items_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_top_clients_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
     let top_clients = ctx.authenticated_api.get_top_clients(None).unwrap();
@@ -146,6 +151,7 @@ fn get_top_clients_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_top_clients_blocked_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("analytics.query.yahoo.com");
     let top_clients_blocked = ctx.authenticated_api.get_top_clients_blocked(None).unwrap();
@@ -167,6 +173,7 @@ fn get_top_clients_blocked_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_forward_destinations_test(ctx: &mut PiHoleTestContext) {
     let forward_destination = ctx
         .authenticated_api
@@ -177,6 +184,7 @@ fn get_forward_destinations_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_query_types_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
     let query_types = ctx.authenticated_api.get_query_types().unwrap();
@@ -186,15 +194,17 @@ fn get_query_types_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_all_queries_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
-    let queries = ctx.authenticated_api.get_all_queries(100).unwrap();
+    let queries = ctx.authenticated_api.get_all_queries(25).unwrap();
     assert!(queries.len() >= 1);
     assert!(queries.iter().any(|query| query.domain == "google.com"));
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn enable_test(ctx: &mut PiHoleTestContext) {
     let status = ctx.authenticated_api.enable().unwrap();
     assert!(status.status == "enabled");
@@ -202,6 +212,7 @@ fn enable_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn disable_test(ctx: &mut PiHoleTestContext) {
     let status = ctx.authenticated_api.disable(10).unwrap();
     assert!(status.status == "disabled");
@@ -213,6 +224,7 @@ fn disable_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_version_test(ctx: &mut PiHoleTestContext) {
     let version = ctx.unauthenticated_api.get_version().unwrap();
     assert!(version >= 3);
@@ -220,6 +232,7 @@ fn get_version_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_versions_test(ctx: &mut PiHoleTestContext) {
     let versions = ctx.unauthenticated_api.get_versions().unwrap();
     assert_ne!(
@@ -238,6 +251,7 @@ fn get_versions_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_cache_info_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
     let cache_info = ctx.authenticated_api.get_cache_info().unwrap();
@@ -246,6 +260,7 @@ fn get_cache_info_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_client_names_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
     let client_names = ctx.authenticated_api.get_client_names().unwrap();
@@ -254,12 +269,14 @@ fn get_client_names_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_over_time_data_clients_test(ctx: &mut PiHoleTestContext) {
     ctx.authenticated_api.get_over_time_data_clients().unwrap();
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_network_test(ctx: &mut PiHoleTestContext) {
     // This takes a while to update the DB so testing for change is difficult
     ctx.authenticated_api.get_network().unwrap();
@@ -267,6 +284,7 @@ fn get_network_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
     // This takes a while to update the DB so testing for change is difficult
     ctx.authenticated_api.get_queries_count().unwrap();
@@ -274,6 +292,7 @@ fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn add_test(ctx: &mut PiHoleTestContext) {
     let response = ctx
         .authenticated_api
@@ -289,6 +308,7 @@ fn add_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn remove_test(ctx: &mut PiHoleTestContext) {
     let response = ctx
         .authenticated_api
@@ -304,6 +324,7 @@ fn remove_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
     ctx.authenticated_api
         .list_add(&["testdomain.foo"], "white")
@@ -348,12 +369,14 @@ fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
     ctx.authenticated_api.get_custom_dns_records().unwrap();
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn add_and_delete_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
     let ipv4_test_address = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
     let ipv4_test_domain = "4.example.com";
@@ -410,12 +433,14 @@ fn add_and_delete_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_custom_cname_records_test(ctx: &mut PiHoleTestContext) {
     ctx.authenticated_api.get_custom_cname_records().unwrap();
 }
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn add_and_delete_custom_cname_records_test(ctx: &mut PiHoleTestContext) {
     let domain = "abc.example.com";
     let target_domain = "abc.example.net";
@@ -447,6 +472,7 @@ fn add_and_delete_custom_cname_records_test(ctx: &mut PiHoleTestContext) {
 
 #[test_context(PiHoleTestContext)]
 #[test]
+#[serial]
 fn get_max_logage_test(ctx: &mut PiHoleTestContext) {
     let max_logage = ctx.authenticated_api.get_max_logage().unwrap();
     assert!(max_logage >= 0.0);

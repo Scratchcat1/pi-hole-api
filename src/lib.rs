@@ -2,14 +2,12 @@ use crate::fake_hash_map::FakeHashMap;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::time::Duration;
 pub mod api_types;
 mod custom_deserializers;
 pub mod errors;
 mod fake_hash_map;
 pub mod ftl_types;
 use crate::api_types::*;
-use chrono::prelude::*;
 
 trait PiHoleAPIHost {
     fn get_host(&self) -> &str;
@@ -98,24 +96,24 @@ where
     T: PiHoleAPIHost,
 {
     fn get_summary_raw(&self) -> Result<SummaryRaw, errors::APIError> {
-        simple_json_request(&self.get_host(), "/admin/api.php?summaryRaw")
+        simple_json_request(self.get_host(), "/admin/api.php?summaryRaw")
     }
 
     fn get_summary(&self) -> Result<Summary, errors::APIError> {
-        simple_json_request(&self.get_host(), "/admin/api.php?summary")
+        simple_json_request(self.get_host(), "/admin/api.php?summary")
     }
 
     fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, errors::APIError> {
-        simple_json_request(&self.get_host(), "/admin/api.php?overTimeData10mins")
+        simple_json_request(self.get_host(), "/admin/api.php?overTimeData10mins")
     }
 
     fn get_version(&self) -> Result<u32, errors::APIError> {
-        let raw_version: Version = simple_json_request(&self.get_host(), "/admin/api.php?version")?;
+        let raw_version: Version = simple_json_request(self.get_host(), "/admin/api.php?version")?;
         Ok(raw_version.version)
     }
 
     fn get_versions(&self) -> Result<Versions, errors::APIError> {
-        simple_json_request(&self.get_host(), "/admin/api.php?versions")
+        simple_json_request(self.get_host(), "/admin/api.php?versions")
     }
 }
 
