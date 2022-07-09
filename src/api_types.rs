@@ -397,3 +397,10 @@ pub struct CustomCNAMERecord {
     /// Target domain
     pub target_domain: String,
 }
+
+/// Response format when requesting information from the FTL while it is not running
+#[derive(Deserialize, Debug)]
+pub struct FTLNotRunning {
+    /// Not running flag
+    pub FTLnotrunning: String,
+}

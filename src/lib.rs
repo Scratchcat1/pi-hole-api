@@ -8,6 +8,9 @@ pub mod errors;
 mod fake_hash_map;
 pub mod ftl_types;
 use crate::api_types::*;
+use std::borrow::Borrow;
+
+const NO_PARAMS: [(&str, &str); 0] = [];
 
 trait PiHoleAPIHost {
     fn get_host(&self) -> &str;
@@ -83,11 +86,22 @@ pub trait UnauthenticatedPiHoleAPI {
     fn get_versions(&self) -> Result<Versions, errors::APIError>;
 }
 
-fn simple_json_request<T>(host: &str, path_query: &str) -> Result<T, errors::APIError>
+fn simple_json_request<T, I, K, V>(
+    host: &str,
+    path_query: &str,
+    params: I,
+) -> Result<T, errors::APIError>
 where
     T: DeserializeOwned,
+    I: IntoIterator,
+    K: AsRef<str>,
+    V: AsRef<str>,
+    <I as IntoIterator>::Item: Borrow<(K, V)>,
 {
-    let response = reqwest::blocking::get(&format!("{}{}", host, path_query))?;
+    let path = format!("{}{}", host, path_query);
+    let response = reqwest::blocking::get(
+        reqwest::Url::parse_with_params(&path, params).expect("Invalid URL"),
+    )?;
     Ok(response.json()?)
 }
 
@@ -96,24 +110,29 @@ where
     T: PiHoleAPIHost,
 {
     fn get_summary_raw(&self) -> Result<SummaryRaw, errors::APIError> {
-        simple_json_request(self.get_host(), "/admin/api.php?summaryRaw")
+        simple_json_request(self.get_host(), "/admin/api.php?summaryRaw", &NO_PARAMS)
     }
 
     fn get_summary(&self) -> Result<Summary, errors::APIError> {
-        simple_json_request(self.get_host(), "/admin/api.php?summary")
+        simple_json_request(self.get_host(), "/admin/api.php?summary", &NO_PARAMS)
     }
 
     fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, errors::APIError> {
-        simple_json_request(self.get_host(), "/admin/api.php?overTimeData10mins")
+        simple_json_request(
+            self.get_host(),
+            "/admin/api.php?overTimeData10mins",
+            &NO_PARAMS,
+        )
     }
 
     fn get_version(&self) -> Result<u32, errors::APIError> {
-        let raw_version: Version = simple_json_request(self.get_host(), "/admin/api.php?version")?;
+        let raw_version: Version =
+            simple_json_request(self.get_host(), "/admin/api.php?version", &NO_PARAMS)?;
         Ok(raw_version.version)
     }
 
     fn get_versions(&self) -> Result<Versions, errors::APIError> {
-        simple_json_request(self.get_host(), "/admin/api.php?versions")
+        simple_json_request(self.get_host(), "/admin/api.php?versions", &NO_PARAMS)
     }
 }
 
@@ -225,18 +244,23 @@ pub trait AuthenticatedPiHoleAPI {
     fn get_max_logage(&self) -> Result<f32, errors::APIError>;
 }
 
-fn authenticated_json_request<T>(
+fn authenticated_json_request<'a, T, I>(
     host: &str,
     path_query: &str,
-    api_key: &str,
+    params: I,
+    api_key: &'a str,
 ) -> Result<T, errors::APIError>
 where
     T: DeserializeOwned,
+    I: IntoIterator<Item = &'a (&'a str, &'a str)>,
 {
     let joining_char = if path_query.contains('?') { '&' } else { '?' };
-    let auth_path_query = format!("{}{}{}auth={}", host, path_query, joining_char, api_key);
-    let response = reqwest::blocking::get(&auth_path_query)?;
-    println!("{:?}", reqwest::blocking::get(&auth_path_query)?.text()?);
+    let path = format!("{}{}", host, path_query);
+    let auth_params = [("auth", api_key)];
+    let url =
+        reqwest::Url::parse_with_params(&path, params.into_iter().chain(auth_params.into_iter()))
+            .expect("Invalid URL");
+    let response = reqwest::blocking::get(url)?;
     Ok(response.json()?)
 }
 
@@ -279,7 +303,8 @@ where
     fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!("/admin/api.php?topItems={}", count.unwrap_or(10)),
+            "/admin/api.php",
+            [&("topItems", count.unwrap_or(10).to_string().as_str())],
             self.get_api_key(),
         )
     }
