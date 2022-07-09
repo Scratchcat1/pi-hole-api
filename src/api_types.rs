@@ -402,5 +402,6 @@ pub struct CustomCNAMERecord {
 #[derive(Deserialize, Debug)]
 pub struct FTLNotRunning {
     /// Not running flag
-    pub FTLnotrunning: String,
+    #[serde(rename = "FTLnotrunning")]
+    pub ftl_not_running: bool,
 }

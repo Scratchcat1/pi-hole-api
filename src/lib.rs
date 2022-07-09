@@ -187,15 +187,15 @@ pub trait AuthenticatedPiHoleAPI {
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     fn list_add(
         &self,
-        domains: &[&str],
+        domain: &str,
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError>;
 
-    /// Remove domains to a custom white/blacklist.
+    /// Remove domain to a custom white/blacklist.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
     fn list_remove(
         &self,
-        domains: &[&str],
+        domain: &str,
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError>;
 
@@ -244,7 +244,7 @@ pub trait AuthenticatedPiHoleAPI {
     fn get_max_logage(&self) -> Result<f32, errors::APIError>;
 }
 
-fn authenticated_json_request<'a, T, I>(
+fn authenticated_json_request<'a, T, I, K, V>(
     host: &str,
     path_query: &str,
     params: I,
@@ -252,47 +252,25 @@ fn authenticated_json_request<'a, T, I>(
 ) -> Result<T, errors::APIError>
 where
     T: DeserializeOwned,
-    I: IntoIterator<Item = &'a (&'a str, &'a str)>,
+    I: IntoIterator<Item = (K, V)>,
+    K: AsRef<str>,
+    V: AsRef<str>,
+    // <I as IntoIterator>::Item: Borrow<(K, V)>,
 {
-    let joining_char = if path_query.contains('?') { '&' } else { '?' };
     let path = format!("{}{}", host, path_query);
-    let auth_params = [("auth", api_key)];
+    let auth_params = [("auth".to_string(), api_key.to_string())];
+    let converted_params: Vec<(String, String)> = params
+        .into_iter()
+        .map(|(k, v)| (k.as_ref().to_string(), v.as_ref().to_string()))
+        .collect();
     let url =
-        reqwest::Url::parse_with_params(&path, params.into_iter().chain(auth_params.into_iter()))
+        reqwest::Url::parse_with_params(&path, converted_params.iter().chain(auth_params.iter()))
             .expect("Invalid URL");
-    let response = reqwest::blocking::get(url)?;
-    Ok(response.json()?)
-}
-
-/// Perform a custom white/blacklist action ("add" or "sub")
-fn list_action<T>(
-    host: &str,
-    api_key: &str,
-    domains: &[&str],
-    list: &str,
-    action: &str,
-) -> Result<T, errors::APIError>
-where
-    T: DeserializeOwned,
-{
-    let url = format!(
-        "{}/admin/api.php?{}={}&list={}&auth={}",
-        host,
-        action,
-        domains.join(" "),
-        list,
-        api_key
-    );
-
-    let response_text = reqwest::blocking::get(&url)?.text()?;
-    println!("{}", response_text);
-    if response_text.starts_with("Invalid list") {
-        Err(errors::APIError::InvalidList)
-    } else {
-        match serde_json::from_str::<T>(&response_text) {
-            Ok(response) => Ok(response),
-            Err(error) => Err(error.into()),
-        }
+    let response_text = reqwest::blocking::get(url)?.text()?;
+    errors::detect_response_errors(&response_text)?;
+    match serde_json::from_str::<T>(&response_text) {
+        Ok(response) => Ok(response),
+        Err(error) => Err(error.into()),
     }
 }
 
@@ -304,7 +282,7 @@ where
         authenticated_json_request(
             self.get_host(),
             "/admin/api.php",
-            [&("topItems", count.unwrap_or(10).to_string().as_str())],
+            [("topItems", count.unwrap_or(10).to_string())],
             self.get_api_key(),
         )
     }
@@ -312,7 +290,8 @@ where
     fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!("/admin/api.php?topClients={}", count.unwrap_or(10)),
+            "/admin/api.php?",
+            [("topClients", count.unwrap_or(10).to_string())],
             self.get_api_key(),
         )
     }
@@ -323,7 +302,8 @@ where
     ) -> Result<TopClientsBlocked, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!("/admin/api.php?topClientsBlocked={}", count.unwrap_or(10)),
+            "/admin/api.php?",
+            [("topClientsBlocked", count.unwrap_or(10).to_string())],
             self.get_api_key(),
         )
     }
@@ -332,10 +312,11 @@ where
         &self,
         unsorted: bool,
     ) -> Result<ForwardDestinations, errors::APIError> {
-        let param_value = if unsorted { "=unsorted" } else { "" };
+        let param_value = if unsorted { "unsorted" } else { "" };
         authenticated_json_request(
             self.get_host(),
-            &format!("/admin/api.php?getForwardDestinations{}", param_value),
+            "/admin/api.php",
+            [("getForwardDestinations", param_value)],
             self.get_api_key(),
         )
     }
@@ -343,7 +324,8 @@ where
     fn get_query_types(&self) -> Result<QueryTypes, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            "/admin/api.php?getQueryTypes",
+            "/admin/api.php",
+            [("getQueryTypes", "")],
             self.get_api_key(),
         )
     }
@@ -351,20 +333,27 @@ where
     fn get_all_queries(&self, count: u32) -> Result<Vec<Query>, errors::APIError> {
         let mut raw_data: HashMap<String, Vec<Query>> = authenticated_json_request(
             self.get_host(),
-            &format!("/admin/api.php?getAllQueries={}", count),
+            "/admin/api.php",
+            [("getAllQueries", count.to_string())],
             self.get_api_key(),
         )?;
         Ok(raw_data.remove("data").unwrap())
     }
 
     fn enable(&self) -> Result<Status, errors::APIError> {
-        authenticated_json_request(self.get_host(), "/admin/api.php?enable", self.get_api_key())
+        authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php?",
+            [("enable", "")],
+            self.get_api_key(),
+        )
     }
 
     fn disable(&self, seconds: u64) -> Result<Status, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!("/admin/api.php?disable={}", seconds),
+            "/admin/api.php",
+            [("disable", seconds.to_string())],
             self.get_api_key(),
         )
     }
@@ -372,7 +361,8 @@ where
     fn get_cache_info(&self) -> Result<CacheInfo, errors::APIError> {
         let mut raw_data: HashMap<String, CacheInfo> = authenticated_json_request(
             self.get_host(),
-            "/admin/api.php?getCacheInfo",
+            "/admin/api.php",
+            [("getCacheInfo", "")],
             self.get_api_key(),
         )?;
         Ok(raw_data.remove("cacheinfo").expect("Missing cache info"))
@@ -381,7 +371,8 @@ where
     fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError> {
         let mut raw_data: HashMap<String, Vec<ClientName>> = authenticated_json_request(
             self.get_host(),
-            "/admin/api.php?getClientNames",
+            "/admin/api.php",
+            [("getClientNames", "")],
             self.get_api_key(),
         )?;
         Ok(raw_data
@@ -393,7 +384,8 @@ where
         let mut raw_data: HashMap<String, FakeHashMap<String, Vec<u64>>> =
             authenticated_json_request(
                 self.get_host(),
-                "/admin/api.php?overTimeDataClients",
+                "/admin/api.php",
+                [("overTimeDataClients", "")],
                 self.get_api_key(),
             )?;
 
@@ -406,7 +398,8 @@ where
     fn get_network(&self) -> Result<Network, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            "/admin/api_db.php?network",
+            "/admin/api_db.php",
+            [("network", "")],
             self.get_api_key(),
         )
     }
@@ -414,7 +407,8 @@ where
     fn get_queries_count(&self) -> Result<u64, errors::APIError> {
         let raw_data: HashMap<String, u64> = authenticated_json_request(
             self.get_host(),
-            "/admin/api_db.php?getQueriesCount",
+            "/admin/api_db.php",
+            [("getQueriesCount", "")],
             self.get_api_key(),
         )?;
         Ok(*raw_data.get("count").expect("Missing count attribute"))
@@ -422,18 +416,28 @@ where
 
     fn list_add(
         &self,
-        domains: &[&str],
+        domain: &str,
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
-        list_action(self.get_host(), self.get_api_key(), domains, list, "add")
+        authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php",
+            [("add", domain), ("list", list)],
+            self.get_api_key(),
+        )
     }
 
     fn list_remove(
         &self,
-        domains: &[&str],
+        domain: &str,
         list: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
-        list_action(self.get_host(), self.get_api_key(), domains, list, "sub")
+        authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php",
+            [("sub", domain), ("list", list)],
+            self.get_api_key(),
+        )
     }
 
     fn list_get_domains(
@@ -441,20 +445,21 @@ where
         list: &str,
     ) -> Result<Vec<CustomListDomainDetails>, errors::APIError> {
         // if not "add" or "sub", api.php defaults to the "get_domains" action
-        let mut raw_data: HashMap<String, Vec<CustomListDomainDetails>> = list_action(
-            self.get_host(),
-            self.get_api_key(),
-            &[],
-            list,
-            "get_domains",
-        )?;
+        let mut raw_data: HashMap<String, Vec<CustomListDomainDetails>> =
+            authenticated_json_request(
+                self.get_host(),
+                "/admin/api.php",
+                [("get", ""), ("list", list)],
+                self.get_api_key(),
+            )?;
         Ok(raw_data.remove("data").unwrap())
     }
 
     fn get_custom_dns_records(&self) -> Result<Vec<CustomDNSRecord>, errors::APIError> {
         let mut raw_data: HashMap<String, Vec<Vec<String>>> = authenticated_json_request(
             self.get_host(),
-            "/admin/api.php?customdns&action=get",
+            "/admin/api.php",
+            [("customdns", ""), ("action", "get")],
             self.get_api_key(),
         )?;
 
@@ -476,10 +481,13 @@ where
     ) -> Result<ListModificationResponse, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!(
-                "/admin/api.php?customdns&action=add&ip={}&domain={}",
-                ip, domain
-            ),
+            "/admin/api.php",
+            [
+                ("customdns", ""),
+                ("action", "add"),
+                ("ip", &ip.to_string()),
+                ("domain", domain),
+            ],
             self.get_api_key(),
         )
     }
@@ -491,10 +499,13 @@ where
     ) -> Result<ListModificationResponse, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!(
-                "/admin/api.php?customdns&action=delete&ip={}&domain={}",
-                ip, domain
-            ),
+            "/admin/api.php",
+            [
+                ("customdns", ""),
+                ("action", "delete"),
+                ("ip", &ip.to_string()),
+                ("domain", domain),
+            ],
             self.get_api_key(),
         )
     }
@@ -502,7 +513,8 @@ where
     fn get_custom_cname_records(&self) -> Result<Vec<CustomCNAMERecord>, errors::APIError> {
         let mut raw_data: HashMap<String, Vec<Vec<String>>> = authenticated_json_request(
             self.get_host(),
-            "/admin/api.php?customcname&action=get",
+            "/admin/api.php",
+            [("customcname", ""), ("action", "get")],
             self.get_api_key(),
         )?;
 
@@ -524,10 +536,13 @@ where
     ) -> Result<ListModificationResponse, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!(
-                "/admin/api.php?customcname&action=add&domain={}&target={}",
-                domain, target_domain
-            ),
+            "/admin/api.php",
+            [
+                ("customcname", ""),
+                ("action", "add"),
+                ("domain", domain),
+                ("target", target_domain),
+            ],
             self.get_api_key(),
         )
     }
@@ -539,10 +554,13 @@ where
     ) -> Result<ListModificationResponse, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
-            &format!(
-                "/admin/api.php?customcname&action=delete&domain={}&target={}",
-                domain, target_domain
-            ),
+            "/admin/api.php",
+            [
+                ("customcname", ""),
+                ("action", "delete"),
+                ("domain", domain),
+                ("target", target_domain),
+            ],
             self.get_api_key(),
         )
     }
@@ -550,7 +568,8 @@ where
     fn get_max_logage(&self) -> Result<f32, errors::APIError> {
         let mut raw_data: HashMap<String, f32> = authenticated_json_request(
             self.get_host(),
-            "/admin/api.php?getMaxlogage",
+            "/admin/api.php",
+            [("getMaxlogage", "")],
             self.get_api_key(),
         )?;
         Ok(raw_data.remove("maxlogage").unwrap())

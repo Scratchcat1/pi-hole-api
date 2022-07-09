@@ -296,13 +296,13 @@ fn get_queries_count_test(ctx: &mut PiHoleTestContext) {
 fn add_test(ctx: &mut PiHoleTestContext) {
     let response = ctx
         .authenticated_api
-        .list_add(&["testdomain.foo"], "white")
+        .list_add("testdomain.foo", "white")
         .unwrap();
     assert!(response.success);
 
     let response = ctx
         .authenticated_api
-        .list_add(&["testdomain.foo"], "NOT_A_LIST");
+        .list_add("testdomain.foo", "NOT_A_LIST");
     assert!(matches!(response.err().unwrap(), APIError::InvalidList));
 }
 
@@ -312,13 +312,13 @@ fn add_test(ctx: &mut PiHoleTestContext) {
 fn remove_test(ctx: &mut PiHoleTestContext) {
     let response = ctx
         .authenticated_api
-        .list_remove(&["x.testdomain.foo"], "white")
+        .list_remove("x.testdomain.foo", "white")
         .unwrap();
     assert!(response.success);
 
     let response = ctx
         .authenticated_api
-        .list_remove(&["x.testdomain.foo"], "NOT_A_LIST");
+        .list_remove("x.testdomain.foo", "NOT_A_LIST");
     assert!(matches!(response.err().unwrap(), APIError::InvalidList));
 }
 
@@ -327,7 +327,7 @@ fn remove_test(ctx: &mut PiHoleTestContext) {
 #[serial]
 fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
     ctx.authenticated_api
-        .list_add(&["testdomain.foo"], "white")
+        .list_add("testdomain.foo", "white")
         .unwrap();
 
     let domains = ctx.authenticated_api.list_get_domains("white").unwrap();
@@ -351,7 +351,7 @@ fn list_get_domains_test(ctx: &mut PiHoleTestContext) {
     ));
 
     ctx.authenticated_api
-        .list_remove(&["testdomain.foo"], "white")
+        .list_remove("testdomain.foo", "white")
         .unwrap();
 
     let domains = ctx.authenticated_api.list_get_domains("white").unwrap();
