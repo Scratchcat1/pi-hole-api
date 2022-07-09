@@ -4,26 +4,27 @@ Rust library for interacting with the Pi Hole PHP API.
 ## Example
 ### Simple
 ```rust
-use pi_hole_api::PiHoleAPI;
+use pi_hole_api::{PiHoleAPIConfig, UnauthenticatedPiHoleAPI};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let api = PiHoleAPI::new("http://192.168.0.100".to_string(), None);
+    let api = PiHoleAPIConfig::new("http://192.168.0.19".to_string());
 
-    let status = api.get_summary()?;
+    let status = api.get_summary();
     println!("{:?}", status);
     Ok(())
 }
+
 ```
 
 ### Authentication
 ```rust
-use pi_hole_api::PiHoleAPI;
+use pi_hole_api::{AuthenticatedPiHoleAPI, PiHoleAPIConfigWithKey};
 
 fn main() {
     // Replace the address and key with those of your Pi Hole
-    let api = PiHoleAPI::new(
+    let api = PiHoleAPIConfigWithKey::new(
         "http://192.168.0.100".to_string(),
-        Some("YOUR_API_KEY".to_string()),
+        "0123456789abcedf0123456789abcedf0123456789abcedf0123456789abcedf".to_string(),
     );
 
     match api.get_queries_count() {
