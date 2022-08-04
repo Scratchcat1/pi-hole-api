@@ -36,8 +36,8 @@ fn main() {
 ```
 
 ## Limitations
-~~Only Pi-Hole v5.0+ is supported due to changes in the return types of the API.  
-Currently removing domains from blacklists/whitelists via the API is [broken](https://github.com/pi-hole/AdminLTE/issues/1297) and therefore isn't implemented.~~ Resolved: [PR](https://github.com/pi-hole/AdminLTE/pull/1387)
+- Only Pi-Hole v5.0+ is supported due to changes in the return types of the API.
+- ~~Currently removing domains from blacklists/whitelists via the API is [broken](https://github.com/pi-hole/AdminLTE/issues/1297) and therefore isn't implemented.~~ Resolved: [PR](https://github.com/pi-hole/AdminLTE/pull/1387)
 
 ## Testing
 The docker-compose file creates a Pi-Hole instance. You will need the API key of the instance to run the test. Store the key in the environment variable `PI_HOLE_API_TEST_API_KEY`.
