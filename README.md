@@ -36,10 +36,14 @@ fn main() {
 ```
 
 ## Limitations
-Only Pi-Hole v5.0+ is supported due to changes in the return types of the API.  
-Currently removing domains from blacklists/whitelists via the API is [broken](https://github.com/pi-hole/AdminLTE/issues/1297) and therefore isn't implemented.
+~~Only Pi-Hole v5.0+ is supported due to changes in the return types of the API.  
+Currently removing domains from blacklists/whitelists via the API is [broken](https://github.com/pi-hole/AdminLTE/issues/1297) and therefore isn't implemented.~~ Resolved: [PR](https://github.com/pi-hole/AdminLTE/pull/1387)
 
 ## Testing
-Testing occurs against a working Pi-Hole, to test run `cargo test`.  
-If you don't want to risk altering your Pi-Hole set up another one and alter the `PI_HOLE_API_TEST_TARGET` environmental variable to point at it.  
-The API key is required for some tests and is read from the `PI_HOLE_API_TEST_API_KEY` environmental variable.
+The docker-compose file creates a Pi-Hole instance. You will need the API key of the instance to run the test. Store the key in the environment variable `PI_HOLE_API_TEST_API_KEY`.
+
+Environmental variables `PI_HOLE_API_TEST_TARGET_HTTP_ADDRESS` and `PI_HOLE_API_TEST_TARGET_DNS_ADDRESS` should contain the http address (e.g. `http://localhost`) and the DNS IP:Port pair (e.g. `127.0.0.1:53`).
+
+An envrc example with these variables is available in `.envrc-example`.
+
+Once the environmental variables are configured the tests can be run with `cargo test`.
