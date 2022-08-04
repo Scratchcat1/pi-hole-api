@@ -3,5 +3,5 @@
 [X] Implement a [recent version](https://github.com/pi-hole/AdminLTE/commit/300d8d4b1fe43951de7d8f1dd6536c0411e55bef) of the API  
 [X] Update to use Pi-Hole v5  
 [X] Use environmental variables for the tests  
-[ ] Handle errors better when no api key is set. Partially through Simple errors.  
+[X] Handle errors better when no api key is set.
 [ ] Refactor to avoid useless structs  
