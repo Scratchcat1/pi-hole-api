@@ -21,6 +21,7 @@ trait PiHoleAPIKey {
 }
 
 /// Pi Hole API Struct
+#[derive(Debug)]
 pub struct PiHoleAPIConfig {
     /// Pi Hole host
     host: String,
@@ -35,6 +36,7 @@ impl PiHoleAPIConfig {
 }
 
 /// Pi Hole API Struct
+#[derive(Debug)]
 pub struct PiHoleAPIConfigWithKey {
     /// Pi Hole host
     host: String,
