@@ -1,5 +1,5 @@
 use num_derive::FromPrimitive;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use strum::{EnumCount, EnumIter};
 
@@ -64,7 +64,7 @@ pub enum ReplyType {
     QueryReplyMax,
 }
 
-#[derive(Deserialize, Eq, PartialEq, Debug, EnumCount, EnumIter, FromPrimitive)]
+#[derive(Deserialize, Serialize, Eq, PartialEq, Debug, EnumCount, EnumIter, FromPrimitive)]
 pub enum QueryType {
     A,
     AAAA,
