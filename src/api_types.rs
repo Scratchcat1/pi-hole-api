@@ -2,14 +2,14 @@ use crate::custom_deserializers;
 use crate::fake_hash_map;
 use crate::ftl_types::*;
 use chrono::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_tuple::*;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Duration;
 
 /// Summary Raw Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct SummaryRaw {
     /// Number of domains being blocked
     pub domains_being_blocked: u64,
@@ -65,7 +65,7 @@ pub struct SummaryRaw {
 }
 
 /// Summary Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Summary {
     /// Formatted number of domains being blocked
     pub domains_being_blocked: String,
@@ -121,7 +121,7 @@ pub struct Summary {
 }
 
 /// Over Time Data Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct OverTimeData {
     /// Mapping from time to number of domains
     #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
@@ -133,7 +133,7 @@ pub struct OverTimeData {
 }
 
 /// Top Items Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct TopItems {
     /// Top queries mapping from domain to number of requests
     #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
@@ -145,7 +145,7 @@ pub struct TopItems {
 }
 
 /// Top Clients Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct TopClients {
     /// Top sources mapping from "IP" or "hostname|IP" to number of requests.
     #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
@@ -153,7 +153,7 @@ pub struct TopClients {
 }
 
 /// Top Clients Blocked Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct TopClientsBlocked {
     /// Top sources blocked mapping from "IP" or "hostname|IP" to number of blocked requests.
     #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
@@ -161,7 +161,7 @@ pub struct TopClientsBlocked {
 }
 
 /// Forward Destinations Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ForwardDestinations {
     /// Forward destinations mapping from "human_readable_name|IP" to the percentage of requests answered.
     #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
@@ -169,7 +169,7 @@ pub struct ForwardDestinations {
 }
 
 /// Query Types Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct QueryTypes {
     /// Query types mapping from query type (A, AAAA, PTR, etc.) to the percentage of queries which are of that type.
     #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
@@ -177,7 +177,7 @@ pub struct QueryTypes {
 }
 
 /// Query Struct
-#[derive(Deserialize_tuple, Debug)]
+#[derive(Deserialize, Serialize_tuple, Debug)]
 pub struct Query {
     /// Timestamp of query
     #[serde(deserialize_with = "custom_deserializers::deserialize_string_to_naive_datetime")]
@@ -225,28 +225,28 @@ pub struct Query {
 }
 
 /// All Queries Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct AllQueries {
     /// List of queries
     pub data: Vec<Query>,
 }
 
 /// Status Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Status {
     /// Status, "enabled" or "disabled"
     pub status: String,
 }
 
 /// Version Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Version {
     /// Version
     pub version: u32,
 }
 
 /// Versions Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Versions {
     /// Is there an update available for Pi-hole core
     pub core_update: bool,
@@ -279,7 +279,7 @@ pub struct Versions {
 }
 
 /// Cache Info Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct CacheInfo {
     /// Cache size
     #[serde(rename = "cache-size")]
@@ -295,7 +295,7 @@ pub struct CacheInfo {
 }
 
 /// Client Name Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ClientName {
     /// Client name
     pub name: String,
@@ -305,7 +305,7 @@ pub struct ClientName {
 }
 
 /// Network Client Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct NetworkClient {
     /// Client ID
     pub id: u64,
@@ -340,14 +340,14 @@ pub struct NetworkClient {
 }
 
 /// Network Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Network {
     /// List of network clients
     pub network: Vec<NetworkClient>,
 }
 
 /// List Modification Response Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ListModificationResponse {
     /// If request was successful
     pub success: bool,
@@ -356,7 +356,7 @@ pub struct ListModificationResponse {
 }
 
 /// Custom List Domain Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct CustomListDomainDetails {
     /// Entry ID
     pub id: u64,
@@ -381,7 +381,7 @@ pub struct CustomListDomainDetails {
 }
 
 /// Local/Custom List Domain Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct CustomDNSRecord {
     /// Domain of record
     pub domain: String,
@@ -390,7 +390,7 @@ pub struct CustomDNSRecord {
 }
 
 /// Local/Custom List CNAME Struct
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct CustomCNAMERecord {
     /// Domain of record
     pub domain: String,
@@ -399,7 +399,7 @@ pub struct CustomCNAMERecord {
 }
 
 /// Response format when requesting information from the FTL while it is not running
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct FTLNotRunning {
     /// Not running flag
     #[serde(rename = "FTLnotrunning")]
