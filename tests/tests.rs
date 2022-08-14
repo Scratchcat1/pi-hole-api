@@ -154,18 +154,21 @@ fn get_top_clients_test(ctx: &mut PiHoleTestContext) {
 #[serial]
 fn get_top_clients_blocked_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("analytics.query.yahoo.com");
-    let top_clients_blocked = ctx.authenticated_api.get_top_clients_blocked(None).unwrap();
+    let top_clients_blocked = ctx
+        .authenticated_api
+        .get_top_clients_blocked(&None)
+        .unwrap();
     assert!(top_clients_blocked.top_sources_blocked.len() >= 1);
 
     let top_clients_blocked = ctx
         .authenticated_api
-        .get_top_clients_blocked(Some(1))
+        .get_top_clients_blocked(&Some(1))
         .unwrap();
 
     assert!(top_clients_blocked.top_sources_blocked.len() <= 1);
     let top_clients_blocked = ctx
         .authenticated_api
-        .get_top_clients_blocked(Some(100))
+        .get_top_clients_blocked(&Some(100))
         .unwrap();
 
     assert!(top_clients_blocked.top_sources_blocked.len() <= 100);
