@@ -114,23 +114,23 @@ fn get_over_time_data_10_mins_test(ctx: &mut PiHoleTestContext) {
 fn get_top_items_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
 
-    let top_items = ctx.authenticated_api.get_top_items(None).unwrap();
+    let top_items = ctx.authenticated_api.get_top_items(&None).unwrap();
     assert!(top_items.top_queries.len() >= 1);
 
-    let top_items = ctx.authenticated_api.get_top_items(Some(1)).unwrap();
+    let top_items = ctx.authenticated_api.get_top_items(&Some(1)).unwrap();
     assert_eq!(top_items.top_queries.len(), 1);
     let top_query_count = top_items.top_queries.values().next().unwrap();
 
     // Test the top query increases
     let top_query = top_items.top_queries.keys().next().unwrap();
     ctx.lookup_ip(top_query);
-    let top_items = ctx.authenticated_api.get_top_items(Some(1)).unwrap();
+    let top_items = ctx.authenticated_api.get_top_items(&Some(1)).unwrap();
     assert_eq!(
         *top_items.top_queries.values().next().unwrap(),
         *top_query_count + 1
     );
 
-    let top_items = ctx.authenticated_api.get_top_items(Some(100)).unwrap();
+    let top_items = ctx.authenticated_api.get_top_items(&Some(100)).unwrap();
     assert!(top_items.top_queries.len() <= 100);
 }
 
@@ -139,13 +139,13 @@ fn get_top_items_test(ctx: &mut PiHoleTestContext) {
 #[serial]
 fn get_top_clients_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
-    let top_clients = ctx.authenticated_api.get_top_clients(None).unwrap();
+    let top_clients = ctx.authenticated_api.get_top_clients(&None).unwrap();
     assert!(top_clients.top_sources.len() >= 1);
 
-    let top_clients = ctx.authenticated_api.get_top_clients(Some(1)).unwrap();
+    let top_clients = ctx.authenticated_api.get_top_clients(&Some(1)).unwrap();
     assert!(top_clients.top_sources.len() <= 1);
 
-    let top_clients = ctx.authenticated_api.get_top_clients(Some(100)).unwrap();
+    let top_clients = ctx.authenticated_api.get_top_clients(&Some(100)).unwrap();
     assert!(top_clients.top_sources.len() <= 100);
 }
 
@@ -384,10 +384,10 @@ fn add_and_delete_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
     let ipv6_test_domain = "6.example.com";
 
     ctx.authenticated_api
-        .delete_custom_dns_record(ipv4_test_address, ipv4_test_domain)
+        .delete_custom_dns_record(&ipv4_test_address, ipv4_test_domain)
         .unwrap();
     ctx.authenticated_api
-        .delete_custom_dns_record(ipv6_test_address, ipv6_test_domain)
+        .delete_custom_dns_record(&ipv6_test_address, ipv6_test_domain)
         .unwrap();
 
     let custom_dns_records = ctx.authenticated_api.get_custom_dns_records().unwrap();
@@ -401,10 +401,10 @@ fn add_and_delete_custom_dns_records_test(ctx: &mut PiHoleTestContext) {
         ));
 
     ctx.authenticated_api
-        .add_custom_dns_record(ipv4_test_address, ipv4_test_domain)
+        .add_custom_dns_record(&ipv4_test_address, ipv4_test_domain)
         .unwrap();
     ctx.authenticated_api
-        .add_custom_dns_record(ipv6_test_address, ipv6_test_domain)
+        .add_custom_dns_record(&ipv6_test_address, ipv6_test_domain)
         .unwrap();
 
     let custom_dns_records = ctx.authenticated_api.get_custom_dns_records().unwrap();

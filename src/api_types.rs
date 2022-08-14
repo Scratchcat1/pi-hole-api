@@ -323,12 +323,12 @@ pub struct NetworkClient {
     pub name: Vec<String>,
 
     /// Time first seen
-    #[serde(rename = "firstSeen")]
-    pub first_seen: u64,
+    #[serde(rename = "firstSeen", with = "chrono::naive::serde::ts_seconds")]
+    pub first_seen: NaiveDateTime,
 
     /// Time of last query
-    #[serde(rename = "lastQuery")]
-    pub last_query: u64,
+    #[serde(rename = "lastQuery", with = "chrono::naive::serde::ts_seconds")]
+    pub last_query: NaiveDateTime,
 
     /// Number of queries
     #[serde(rename = "numQueries")]

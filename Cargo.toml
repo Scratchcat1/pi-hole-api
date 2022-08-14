@@ -1,6 +1,6 @@
 [package]
 name = "pi-hole-api"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Connor Holloway <c.holloway314@outlook.com>"]
 edition = "2018"
 license = "MIT"

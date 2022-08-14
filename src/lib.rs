@@ -127,12 +127,14 @@ where
         )
     }
 
+    /// Get simple PiHole version
     fn get_version(&self) -> Result<u32, errors::APIError> {
         let raw_version: Version =
             simple_json_request(self.get_host(), "/admin/api.php?version", &NO_PARAMS)?;
         Ok(raw_version.version)
     }
 
+    /// Get versions of core, FTL and web and if updates are available
     fn get_versions(&self) -> Result<Versions, errors::APIError> {
         simple_json_request(self.get_host(), "/admin/api.php?versions", &NO_PARAMS)
     }
@@ -140,10 +142,10 @@ where
 
 pub trait AuthenticatedPiHoleAPI {
     /// Get the top domains and ads and the number of queries for each. Limit the number of items with `count`.
-    fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, errors::APIError>;
+    fn get_top_items(&self, count: &Option<u32>) -> Result<TopItems, errors::APIError>;
 
     /// Get the top clients and the number of queries for each. Limit the number of items with `count`.
-    fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, errors::APIError>;
+    fn get_top_clients(&self, count: &Option<u32>) -> Result<TopClients, errors::APIError>;
 
     /// Get the top clients blocked and the number of queries for each. Limit the number of items with `count`.
     fn get_top_clients_blocked(
@@ -151,7 +153,7 @@ pub trait AuthenticatedPiHoleAPI {
         count: Option<u32>,
     ) -> Result<TopClientsBlocked, errors::APIError>;
 
-    /// Get the number of queries forwarded and the target.
+    /// Get the percentage of queries forwarded to each target.
     fn get_forward_destinations(
         &self,
         unsorted: bool,
@@ -214,14 +216,14 @@ pub trait AuthenticatedPiHoleAPI {
     /// Add a custom DNS record
     fn add_custom_dns_record(
         &self,
-        ip: IpAddr,
+        ip: &IpAddr,
         domain: &str,
     ) -> Result<ListModificationResponse, errors::APIError>;
 
     /// Delete a custom DNS record
     fn delete_custom_dns_record(
         &self,
-        ip: IpAddr,
+        ip: &IpAddr,
         domain: &str,
     ) -> Result<ListModificationResponse, errors::APIError>;
 
@@ -280,7 +282,7 @@ impl<T> AuthenticatedPiHoleAPI for T
 where
     T: PiHoleAPIHost + PiHoleAPIKey,
 {
-    fn get_top_items(&self, count: Option<u32>) -> Result<TopItems, errors::APIError> {
+    fn get_top_items(&self, count: &Option<u32>) -> Result<TopItems, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
             "/admin/api.php",
@@ -289,7 +291,7 @@ where
         )
     }
 
-    fn get_top_clients(&self, count: Option<u32>) -> Result<TopClients, errors::APIError> {
+    fn get_top_clients(&self, count: &Option<u32>) -> Result<TopClients, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
             "/admin/api.php?",
@@ -478,7 +480,7 @@ where
 
     fn add_custom_dns_record(
         &self,
-        ip: IpAddr,
+        ip: &IpAddr,
         domain: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
         authenticated_json_request(
@@ -496,7 +498,7 @@ where
 
     fn delete_custom_dns_record(
         &self,
-        ip: IpAddr,
+        ip: &IpAddr,
         domain: &str,
     ) -> Result<ListModificationResponse, errors::APIError> {
         authenticated_json_request(
