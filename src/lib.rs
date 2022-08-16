@@ -154,7 +154,7 @@ pub trait AuthenticatedPiHoleAPI {
     /// Get the top clients blocked and the number of queries for each. Limit the number of items with `count`.
     fn get_top_clients_blocked(
         &self,
-        count: &Option<u32>,
+        count: Option<u32>,
     ) -> Result<TopClientsBlocked, errors::APIError>;
 
     /// Get the percentage of queries forwarded to each target.
@@ -305,7 +305,7 @@ where
 
     fn get_top_clients_blocked(
         &self,
-        count: &Option<u32>,
+        count: Option<u32>,
     ) -> Result<TopClientsBlocked, errors::APIError> {
         authenticated_json_request(
             self.get_host(),
