@@ -101,10 +101,14 @@ where
     <I as IntoIterator>::Item: Borrow<(K, V)>,
 {
     let path = format!("{}{}", host, path_query);
-    let response = reqwest::blocking::get(
-        reqwest::Url::parse_with_params(&path, params).expect("Invalid URL"),
-    )?;
-    Ok(response.json()?)
+    let response = ureq::get(
+        url::Url::parse_with_params(&path, params)
+            .expect("Invalid URL")
+            .as_str(),
+    )
+    .call()?
+    .into_json()?;
+    Ok(response)
 }
 
 impl<T> UnauthenticatedPiHoleAPI for T
@@ -267,10 +271,9 @@ where
         .into_iter()
         .map(|(k, v)| (k.as_ref().to_string(), v.as_ref().to_string()))
         .collect();
-    let url =
-        reqwest::Url::parse_with_params(&path, converted_params.iter().chain(auth_params.iter()))
-            .expect("Invalid URL");
-    let response_text = reqwest::blocking::get(url)?.text()?;
+    let url = url::Url::parse_with_params(&path, converted_params.iter().chain(auth_params.iter()))
+        .expect("Invalid URL");
+    let response_text = ureq::get(url.as_str()).call()?.into_string()?;
     errors::detect_response_errors(&response_text)?;
     match serde_json::from_str::<T>(&response_text) {
         Ok(response) => Ok(response),

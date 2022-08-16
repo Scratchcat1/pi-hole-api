@@ -1,17 +1,25 @@
 use crate::api_types::FTLNotRunning;
+use std::io;
 
 #[derive(Debug)]
 pub enum APIError {
-    RequestError(reqwest::Error),
+    RequestError(ureq::Error),
+    IntoJsonError(io::Error),
     SerdeJSONError(serde_json::Error),
     MissingAPIKey,
     InvalidList,
     FTLNotRunning,
 }
 
-impl From<reqwest::Error> for APIError {
-    fn from(error: reqwest::Error) -> Self {
+impl From<ureq::Error> for APIError {
+    fn from(error: ureq::Error) -> Self {
         APIError::RequestError(error)
+    }
+}
+
+impl From<io::Error> for APIError {
+    fn from(error: io::Error) -> Self {
+        APIError::IntoJsonError(error)
     }
 }
 
