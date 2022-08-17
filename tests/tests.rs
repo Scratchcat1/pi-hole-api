@@ -198,8 +198,11 @@ fn get_query_types_test(ctx: &mut PiHoleTestContext) {
 fn get_all_queries_test(ctx: &mut PiHoleTestContext) {
     ctx.lookup_ip("google.com");
     let queries = ctx.authenticated_api.get_all_queries(25).unwrap();
-    assert!(queries.len() >= 1);
-    assert!(queries.iter().any(|query| query.domain == "google.com"));
+    assert!(queries.data.len() >= 1);
+    assert!(queries
+        .data
+        .iter()
+        .any(|query| query.domain == "google.com"));
 }
 
 #[test_context(PiHoleTestContext)]
@@ -227,7 +230,7 @@ fn disable_test(ctx: &mut PiHoleTestContext) {
 #[serial]
 fn get_version_test(ctx: &mut PiHoleTestContext) {
     let version = ctx.unauthenticated_api.get_version().unwrap();
-    assert!(version >= 3);
+    assert!(version.version >= 3);
 }
 
 #[test_context(PiHoleTestContext)]
@@ -473,7 +476,7 @@ fn add_and_delete_custom_cname_records_test(ctx: &mut PiHoleTestContext) {
 #[test_context(PiHoleTestContext)]
 #[test]
 #[serial]
-fn get_max_logage_test(ctx: &mut PiHoleTestContext) {
-    let max_logage = ctx.authenticated_api.get_max_logage().unwrap();
-    assert!(max_logage >= 0.0);
+fn get_max_log_age_test(ctx: &mut PiHoleTestContext) {
+    let max_log_age = ctx.authenticated_api.get_max_log_age().unwrap();
+    assert!(max_log_age >= 0.0);
 }

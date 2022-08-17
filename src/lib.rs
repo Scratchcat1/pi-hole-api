@@ -82,7 +82,7 @@ pub trait UnauthenticatedPiHoleAPI {
     fn get_over_time_data_10_mins(&self) -> Result<OverTimeData, errors::APIError>;
 
     /// Get the Pi-Hole version.
-    fn get_version(&self) -> Result<u32, errors::APIError>;
+    fn get_version(&self) -> Result<Version, errors::APIError>;
 
     /// Get the detailed Pi-Hole versions for core, FTL and web interface.
     fn get_versions(&self) -> Result<Versions, errors::APIError>;
@@ -132,10 +132,8 @@ where
     }
 
     /// Get simple PiHole version
-    fn get_version(&self) -> Result<u32, errors::APIError> {
-        let raw_version: Version =
-            simple_json_request(self.get_host(), "/admin/api.php?version", &NO_PARAMS)?;
-        Ok(raw_version.version)
+    fn get_version(&self) -> Result<Version, errors::APIError> {
+        simple_json_request(self.get_host(), "/admin/api.php?version", &NO_PARAMS)
     }
 
     /// Get versions of core, FTL and web and if updates are available
@@ -167,7 +165,7 @@ pub trait AuthenticatedPiHoleAPI {
     fn get_query_types(&self) -> Result<QueryTypes, errors::APIError>;
 
     /// Get all DNS query data. Limit the number of items with `count`.
-    fn get_all_queries(&self, count: u32) -> Result<Vec<Query>, errors::APIError>;
+    fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError>;
 
     /// Enable the Pi-Hole.
     fn enable(&self) -> Result<Status, errors::APIError>;
@@ -182,14 +180,14 @@ pub trait AuthenticatedPiHoleAPI {
     fn get_client_names(&self) -> Result<Vec<ClientName>, errors::APIError>;
 
     /// Get queries by client over time. Maps timestamp to the number of queries by clients.
-    /// Order of clients in the Vector is the same as for get_client_names
-    fn get_over_time_data_clients(&self) -> Result<HashMap<String, Vec<u64>>, errors::APIError>;
+    /// Order of clients in the Vector is the same as for `get_client_names`
+    fn get_over_time_data_clients(&self) -> Result<OverTimeClientData, errors::APIError>;
 
     /// Get information about network clients.
     fn get_network(&self) -> Result<Network, errors::APIError>;
 
     /// Get the total number of queries received.
-    fn get_queries_count(&self) -> Result<u64, errors::APIError>;
+    fn get_queries_count(&self) -> Result<QueriesCount, errors::APIError>;
 
     /// Add domains to a custom white/blacklist.
     /// Acceptable lists are: `white`, `black`, `white_regex`, `black_regex`, `white_wild`, `black_wild`, `audit`.
@@ -248,8 +246,8 @@ pub trait AuthenticatedPiHoleAPI {
         target_domain: &str,
     ) -> Result<ListModificationResponse, errors::APIError>;
 
-    /// Get max logage
-    fn get_max_logage(&self) -> Result<f32, errors::APIError>;
+    /// Get max log age
+    fn get_max_log_age(&self) -> Result<f32, errors::APIError>;
 }
 
 fn authenticated_json_request<'a, T, I, K, V>(
@@ -337,14 +335,13 @@ where
         )
     }
 
-    fn get_all_queries(&self, count: u32) -> Result<Vec<Query>, errors::APIError> {
-        let mut raw_data: HashMap<String, Vec<Query>> = authenticated_json_request(
+    fn get_all_queries(&self, count: u32) -> Result<AllQueries, errors::APIError> {
+        authenticated_json_request(
             self.get_host(),
             "/admin/api.php",
             [("getAllQueries", count.to_string())],
             self.get_api_key(),
-        )?;
-        Ok(raw_data.remove("data").unwrap())
+        )
     }
 
     fn enable(&self) -> Result<Status, errors::APIError> {
@@ -387,19 +384,13 @@ where
             .expect("Missing clients attribute"))
     }
 
-    fn get_over_time_data_clients(&self) -> Result<HashMap<String, Vec<u64>>, errors::APIError> {
-        let mut raw_data: HashMap<String, FakeHashMap<String, Vec<u64>>> =
-            authenticated_json_request(
-                self.get_host(),
-                "/admin/api.php",
-                [("overTimeDataClients", "")],
-                self.get_api_key(),
-            )?;
-
-        Ok(raw_data
-            .remove("over_time")
-            .expect("Missing over_time attribute")
-            .into())
+    fn get_over_time_data_clients(&self) -> Result<OverTimeClientData, errors::APIError> {
+        authenticated_json_request(
+            self.get_host(),
+            "/admin/api.php",
+            [("overTimeDataClients", "")],
+            self.get_api_key(),
+        )
     }
 
     fn get_network(&self) -> Result<Network, errors::APIError> {
@@ -411,14 +402,13 @@ where
         )
     }
 
-    fn get_queries_count(&self) -> Result<u64, errors::APIError> {
-        let raw_data: HashMap<String, u64> = authenticated_json_request(
+    fn get_queries_count(&self) -> Result<QueriesCount, errors::APIError> {
+        authenticated_json_request(
             self.get_host(),
             "/admin/api_db.php",
             [("getQueriesCount", "")],
             self.get_api_key(),
-        )?;
-        Ok(*raw_data.get("count").expect("Missing count attribute"))
+        )
     }
 
     fn list_add(
@@ -572,7 +562,7 @@ where
         )
     }
 
-    fn get_max_logage(&self) -> Result<f32, errors::APIError> {
+    fn get_max_log_age(&self) -> Result<f32, errors::APIError> {
         let mut raw_data: HashMap<String, f32> = authenticated_json_request(
             self.get_host(),
             "/admin/api.php",

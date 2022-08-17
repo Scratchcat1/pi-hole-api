@@ -132,6 +132,15 @@ pub struct OverTimeData {
     pub ads_over_time: HashMap<String, u64>,
 }
 
+/// Over Time Client Data Struct
+#[derive(Deserialize, Serialize, Debug)]
+pub struct OverTimeClientData {
+    /// Mapping from timestamps lists of number of queries by each client
+    /// Client order is the same as for `get_client_names`
+    #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
+    pub over_time: HashMap<String, Vec<u64>>,
+}
+
 /// Top Items Struct
 #[derive(Deserialize, Serialize, Debug)]
 pub struct TopItems {
@@ -174,6 +183,13 @@ pub struct QueryTypes {
     /// Query types mapping from query type (A, AAAA, PTR, etc.) to the percentage of queries which are of that type.
     #[serde(deserialize_with = "fake_hash_map::deserialize_fake_hash_map")]
     pub querytypes: HashMap<String, f64>,
+}
+
+/// Queries Count Struct
+#[derive(Deserialize, Serialize, Debug)]
+pub struct QueriesCount {
+    /// Number of queries seen
+    pub count: u64,
 }
 
 /// Query Struct
@@ -383,6 +399,15 @@ pub struct CustomListDomainDetails {
 /// Local/Custom List Domain Struct
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CustomDNSRecord {
+    /// Domain of record
+    pub domain: String,
+    /// IP Address
+    pub ip_address: IpAddr,
+}
+
+/// Local/Custom List Domain Struct List
+#[derive(Deserialize, Serialize_tuple, Debug)]
+pub struct CustomDNSRecordList {
     /// Domain of record
     pub domain: String,
     /// IP Address
